@@ -1058,6 +1058,40 @@ def journals_index(request):
 
 
 @office_only
+def emails_log(request):
+    """Office view of outgoing mail — every message the system sent, newest first."""
+    from apps.identity.models import EmailLog
+    q = (request.GET.get("q") or "").strip()
+    kind = (request.GET.get("kind") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    logs = EmailLog.objects.select_related("related_member")
+    if q:
+        logs = logs.filter(Q(to_address__icontains=q) | Q(subject__icontains=q))
+    if kind:
+        logs = logs.filter(kind=kind)
+    if status:
+        logs = logs.filter(status=status)
+    total = logs.count()
+    logs = list(logs[:200])
+    kinds = (EmailLog.objects.values_list("kind", flat=True)
+             .exclude(kind="").distinct().order_by("kind"))
+    return render(request, "editorial/emails_log.html", {
+        "logs": logs, "total": total, "shown": len(logs),
+        "q": q, "kind": kind, "status": status,
+        "kinds": list(kinds),
+        "statuses": EmailLog.Status.choices,
+    })
+
+
+@office_only
+def email_log_detail(request, pk: int):
+    """One email's full body — the office pulls it when a user asks what they got."""
+    from apps.identity.models import EmailLog
+    log = get_object_or_404(EmailLog.objects.select_related("related_member"), pk=pk)
+    return render(request, "editorial/email_log_detail.html", {"log": log})
+
+
+@office_only
 def editors_index(request):
     """Editorial-staff roster. Click a row to edit; one place for all their journals."""
     from django.db.models import Count

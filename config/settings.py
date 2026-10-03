@@ -207,7 +207,8 @@ STORAGES = {
 # Email via AWS SES (shared claw-ops IAM, eu-west-1, mail.celnet.in verified domain).
 # Falls back to console backend if AWS creds are not set — the app still boots in dev.
 if os.environ.get("APID_AWS_ACCESS_KEY_ID"):
-    EMAIL_BACKEND = "django_ses.SESBackend"
+    # Wraps django_ses.SESBackend and writes every message to EmailLog first.
+    EMAIL_BACKEND = "apps.identity.mail_backend.LoggingSESBackend"
     AWS_ACCESS_KEY_ID = os.environ["APID_AWS_ACCESS_KEY_ID"]
     AWS_SECRET_ACCESS_KEY = os.environ.get("APID_AWS_SECRET_ACCESS_KEY", "")
     AWS_SES_REGION_NAME = os.environ.get("APID_AWS_SES_REGION_NAME", "eu-west-1")

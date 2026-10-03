@@ -1,0 +1,67 @@
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Email log{% endblock %}
+{% block office_section %}emails{% endblock %}
+{% block office_navsub %}Outgoing mail{% endblock %}
+{% block office_style %}
+ .m-row { grid-template-columns:150px 220px 1fr 100px; }
+ .m-when { font-size:12px; color:var(--muted); white-space:nowrap; }
+ .m-to { font-size:13px; font-weight:600; color:var(--ink); }
+ .m-to .k { display:block; font-size:11px; color:var(--muted); font-weight:500; margin-top:2px; }
+ .m-subj { font-size:14px; color:var(--ink); }
+ .m-subj .b { color:var(--muted); font-size:12px; margin-top:2px;
+              display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+ .m-stat { text-align:right; }
+ @media (max-width:800px) { .m-row { grid-template-columns:1fr auto; } .m-when, .m-stat { display:none; } }
+{% endblock %}
+
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · Email log</div>
+  <h1>Email log <span class="pill info" style="vertical-align:middle;margin-left:8px">{{ total }}</span></h1>
+  <p>Every outgoing message the system sent — SES delegations and failures. Showing the last {{ shown }}.</p>
+</header>
+
+<form method="get" class="office-toolbar">
+  <input type="search" name="q" placeholder="Search by recipient or subject…" value="{{ q }}">
+  <select name="kind" onchange="this.form.submit()">
+    <option value="">All kinds</option>
+    {% for k in kinds %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ k }}</option>{% endfor %}
+  </select>
+  <select name="status" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for v, label in statuses %}<option value="{{ v }}" {% if v == status %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button type="submit" class="btn-outline">Search</button>
+</form>
+
+<div class="panel office-list">
+  <div class="row head m-row">
+    <div>When</div>
+    <div>To</div>
+    <div>Subject</div>
+    <div class="m-stat">Status</div>
+  </div>
+  {% for log in logs %}
+    <a class="row m-row" href="{% url 'email-log-detail' log.pk %}" style="color:inherit;text-decoration:none">
+      <div class="m-when">{{ log.sent_at|date:"d M Y H:i" }}</div>
+      <div class="m-to">
+        {{ log.to_address }}
+        {% if log.related_member %}<span class="k">APID {{ log.related_member.apid }} · {{ log.related_member.full_name }}</span>{% endif %}
+      </div>
+      <div class="m-subj">
+        {{ log.subject }}
+        {% if log.body %}<div class="b">{{ log.body|slice:":140" }}</div>{% endif %}
+        {% if log.kind %}<span class="pill info" style="margin-top:4px">{{ log.kind }}</span>{% endif %}
+      </div>
+      <div class="m-stat">
+        {% if log.status == "sent" %}<span class="pill ok">Sent</span>
+        {% elif log.status == "failed" %}<span class="pill no">Failed</span>
+        {% else %}<span class="pill mut">{{ log.get_status_display }}</span>{% endif %}
+      </div>
+    </a>
+  {% empty %}
+    <div class="row"><div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:28px">
+      No emails logged yet.</div></div>
+  {% endfor %}
+</div>
+{% endblock %}

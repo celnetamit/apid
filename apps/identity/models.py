@@ -98,3 +98,39 @@ class MemberRole(models.Model):
 
     def __str__(self) -> str:
         return f"{self.member.apid}: {self.get_role_display()}"
+
+
+class EmailLog(models.Model):
+    """An outgoing email, logged for office audit. Captures recipient, sender,
+    subject and body for every message the system sent — SES-backed or outbox
+    fallback. Status is 'sent' when the backend accepted the message, 'failed'
+    when the backend raised, 'outbox' when APID_EMAIL_BACKEND was unset and the
+    body went to the local outbox folder instead.
+    """
+
+    class Status(models.TextChoices):
+        SENT = "sent", "Sent"
+        FAILED = "failed", "Failed"
+        OUTBOX = "outbox", "Outbox"
+
+    sent_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    to_address = models.CharField(max_length=320, db_index=True)
+    from_address = models.CharField(max_length=320, blank=True)
+    subject = models.CharField(max_length=500)
+    body = models.TextField(blank=True)
+    kind = models.CharField(max_length=60, blank=True, db_index=True,
+                            help_text="Loose tag — login_credentials, password_reset, …")
+    status = models.CharField(max_length=20, default=Status.SENT, choices=Status.choices,
+                              db_index=True)
+    error = models.TextField(blank=True)
+    related_member = models.ForeignKey(
+        Member, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="emails_received",
+        help_text="The APID member the message was sent to, when there is one.")
+
+    class Meta:
+        ordering = ["-sent_at"]
+        indexes = [models.Index(fields=["-sent_at"])]
+
+    def __str__(self) -> str:
+        return f"{self.sent_at:%Y-%m-%d %H:%M} → {self.to_address}: {self.subject[:40]}"

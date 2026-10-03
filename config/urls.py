@@ -121,6 +121,8 @@ urlpatterns = [
     path("office/editors/new/", editorial.editor_edit, name="editor-new"),
     path("office/editors/<int:pk>/edit/", editorial.editor_edit, name="editor-edit"),
     path("office/editors/<int:pk>/delete/", editorial.editor_delete, name="editor-delete"),
+    path("office/emails/", editorial.emails_log, name="emails-log"),
+    path("office/emails/<int:pk>/", editorial.email_log_detail, name="email-log-detail"),
     path("office/boards/", editorial.boards, name="boards"),
     path("office/boards/<int:pk>/", editorial.board, name="board"),
     path("documents/appointments/<int:pk>/letter.pdf", editorial.empanelment_letter,
