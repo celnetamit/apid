@@ -1,0 +1,40 @@
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ log.subject|truncatechars:60 }}{% endblock %}
+{% block office_section %}emails{% endblock %}
+{% block office_navsub %}Outgoing mail{% endblock %}
+{% block office_style %}
+ .m-head { display:grid; grid-template-columns:120px 1fr; gap:8px 18px; font-size:14px; padding:18px 24px; }
+ .m-head dt { color:var(--muted); font-weight:500; }
+ .m-head dd { margin:0; color:var(--ink); font-weight:600; word-break:break-word; }
+ .m-body { background:#f9fafc; border-top:1px solid var(--line); padding:22px 24px;
+           white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+           font-size:13px; color:var(--ink); line-height:1.5; max-height:70vh; overflow:auto; }
+ .m-err { background:#fef2f2; border:1px solid #fecaca; color:#991b1b;
+          padding:12px 16px; border-radius:8px; font-size:13px; margin:14px 0;
+          font-family:ui-monospace,monospace; white-space:pre-wrap; }
+{% endblock %}
+
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · <a href="{% url 'emails-log' %}">Email log</a> · #{{ log.pk }}</div>
+  <h1>{{ log.subject }}</h1>
+</header>
+
+<div class="panel">
+  <dl class="m-head">
+    <dt>To</dt><dd>{{ log.to_address }}{% if log.related_member %} · <a href="{% url 'profile' log.related_member.apid %}">{{ log.related_member.full_name|default:log.related_member.username }}</a>{% endif %}</dd>
+    <dt>From</dt><dd>{{ log.from_address|default:"—" }}</dd>
+    <dt>When</dt><dd>{{ log.sent_at|date:"d M Y H:i:s" }}</dd>
+    <dt>Kind</dt><dd>{% if log.kind %}<span class="pill info">{{ log.kind }}</span>{% else %}—{% endif %}</dd>
+    <dt>Status</dt><dd>
+      {% if log.status == "sent" %}<span class="pill ok">Sent</span>
+      {% elif log.status == "failed" %}<span class="pill no">Failed</span>
+      {% else %}<span class="pill mut">{{ log.get_status_display }}</span>{% endif %}
+    </dd>
+  </dl>
+  {% if log.error %}
+  <div style="padding:0 24px"><div class="m-err">{{ log.error }}</div></div>
+  {% endif %}
+  <div class="m-body">{{ log.body }}</div>
+</div>
+{% endblock %}

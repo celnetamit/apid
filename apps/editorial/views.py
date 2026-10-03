@@ -58,11 +58,20 @@ def queue(request):
 
     Office sees every application; a journal manager (EIC/Associate EIC, or the
     commissioning editor set on the journal via EditorialStaff) sees only
-    applications naming at least one of their journals.
+    applications naming at least one of their journals. Journal + date filters
+    narrow it further; per-tab counts respect those filters so the user sees
+    numbers that match the table in front of them.
     """
     from apps.editorial.mng_client import queue as mng_queue, queue_summary
+    from apps.editorial.models import Journal
     state = request.GET.get("state", "new")
     query = (request.GET.get("q") or "").strip()
+    date_from = (request.GET.get("date_from") or "").strip() or None
+    date_to = (request.GET.get("date_to") or "").strip() or None
+    try:
+        journal_id = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        journal_id = None
 
     user_is_office = is_office(request.user)
     journal_ids = None
@@ -72,12 +81,13 @@ def queue(request):
             journal_ids = [-1]  # match nothing
 
     try:
-        counts = queue_summary(journal_ids=journal_ids)
+        counts = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
+                               date_from=date_from, date_to=date_to)
         page_data = mng_queue(
             status=state if state and state != "all" else None,
-            q=query or None,
-            page=1, page_size=100,
-            journal_ids=journal_ids,
+            q=query or None, page=1, page_size=100,
+            journal_ids=journal_ids, journal_id=journal_id,
+            date_from=date_from, date_to=date_to,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
@@ -95,6 +105,45 @@ def queue(request):
         ("declined",    "Declined",     counts.get("declined", 0)),
     ]
 
+    # Journal dropdown counts: Applications on each journal matching the
+    # current state tab + date range + search, so "jomme (12)" tells the user
+    # how many rows picking that journal would reveal. One grouped query over
+    # ApplicationJournal, then a Counter.
+    from collections import Counter as _Counter
+    from django.db.models import Q as _Q
+    from apps.editorial.models import ApplicationJournal, Decision as _Dec
+    base = Journal.objects.all() if user_is_office else manager_journals(request.user)
+    aj_qs = ApplicationJournal.objects.all()
+    if not user_is_office:
+        aj_qs = aj_qs.filter(journal__in=base)
+    if state in ("new", "pending"):
+        aj_qs = aj_qs.filter(application__decision=_Dec.PENDING)
+    elif state == "accepted":
+        aj_qs = aj_qs.filter(application__decision=_Dec.ACCEPTED)
+    elif state == "declined":
+        aj_qs = aj_qs.filter(application__decision=_Dec.DECLINED)
+    elif state == "withdrawn":
+        aj_qs = aj_qs.filter(application__decision=_Dec.WITHDRAWN)
+    if date_from:
+        aj_qs = aj_qs.filter(application__applied_at__date__gte=date_from)
+    if date_to:
+        aj_qs = aj_qs.filter(application__applied_at__date__lte=date_to)
+    if query:
+        aj_qs = aj_qs.filter(_Q(application__member__full_name__icontains=query)
+                             | _Q(application__member__email__icontains=query)
+                             | _Q(application__subject__icontains=query)
+                             | _Q(application__applying_for__icontains=query))
+    # Distinct application-ids per journal (one application can list the same
+    # journal twice but should count once).
+    counts_by_j = _Counter()
+    for jid in aj_qs.values_list("journal_id", "application_id").distinct():
+        if jid[0] is not None:
+            counts_by_j[jid[0]] += 1
+    journal_choices = [
+        {**j, "app_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
+
     return render(request, "editorial/queue.html", {
         "rows": rows,
         "shown": len(rows),
@@ -103,6 +152,10 @@ def queue(request):
         "query": query,
         "counts": counts,
         "tabs": tabs,
+        "journal_choices": journal_choices,
+        "selected_journal": journal_id,
+        "date_from": date_from or "",
+        "date_to": date_to or "",
     })
 
 
@@ -110,42 +163,88 @@ def queue(request):
 def approved_profiles(request):
     """A directory of every member with an active editorial appointment.
 
-    One row per member (not per appointment), so somebody with three roles
-    shows up once with all three listed. Office sees everybody; a journal
-    manager sees only members with an appointment on a journal they manage.
+    One row per appointment, laid out as a table so a column sort or an eye
+    scan can find a journal, a role or a date. Journal + since-date filters
+    narrow the table; the count under the toolbar reflects the filtered view.
     """
-    from apps.editorial.models import Appointment
+    from django.db.models import Q
+    from apps.editorial.models import Appointment, Journal
+    user_is_office = is_office(request.user)
     qs = (Appointment.objects.filter(ended_on__isnull=True)
           .select_related("member", "member__profile", "journal", "application"))
-    if not is_office(request.user):
+    if not user_is_office:
         managed_ids = list(manager_journals(request.user).values_list("id", flat=True))
         qs = qs.filter(journal_id__in=managed_ids)
+
+    # Suppress role-mailbox contamination: an appointment on a journal whose
+    # commissioning editor shares the Member's email is a legacy artefact,
+    # not that person's actual role. Same reason as journal_manage.
+    from django.db.models import F
+    from django.db.models.functions import Lower
+    qs = qs.annotate(_mem_email_l=Lower("member__email"),
+                     _ce_email_l=Lower("journal__commissioning_editor__email"))\
+           .exclude(_mem_email_l=F("_ce_email_l"))
+
     q = (request.GET.get("q") or "").strip()
+    try:
+        journal_id = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        journal_id = None
+    date_from = (request.GET.get("date_from") or "").strip() or None
+    date_to = (request.GET.get("date_to") or "").strip() or None
+
     if q:
-        from django.db.models import Q
         qs = qs.filter(
             Q(member__full_name__icontains=q)
             | Q(member__email__icontains=q)
+            | Q(member__apid__iexact=q)
             | Q(journal__title__icontains=q)
             | Q(role__icontains=q))
-    qs = qs.order_by("member__full_name", "-started_on")
+    if journal_id:
+        qs = qs.filter(journal_id=journal_id)
+    if date_from:
+        qs = qs.filter(started_on__gte=date_from)
+    if date_to:
+        qs = qs.filter(started_on__lte=date_to)
+    qs = qs.order_by("-started_on", "member__full_name", "role")
 
-    # Group by member. Dict preserves insertion order (Py 3.7+).
-    members = {}
-    for appt in qs[:800]:  # safety cap; paginate properly later if needed
-        row = members.setdefault(appt.member_id, {
-            "member": appt.member,
-            "profile": getattr(appt.member, "profile", None),
-            "appointments": [],
-        })
-        row["appointments"].append(appt)
+    rows = list(qs[:800])  # safety cap; paginate when it starts to pinch
+    distinct_members = len({a.member_id for a in rows})
+
+    # Journal dropdown counts: active appointments per journal, honouring the
+    # same date filter and role-mailbox strip as the main table, so the number
+    # next to each option matches what picking it would show. One grouped
+    # query + a Counter beats 274 point counts.
+    from collections import Counter as _Counter
+    from django.db.models import F as _F
+    from django.db.models.functions import Lower as _Lower
+    base = Journal.objects.all() if user_is_office else manager_journals(request.user)
+    appt_qs = Appointment.objects.filter(ended_on__isnull=True)
+    if not user_is_office:
+        appt_qs = appt_qs.filter(journal__in=base)
+    if date_from:
+        appt_qs = appt_qs.filter(started_on__gte=date_from)
+    if date_to:
+        appt_qs = appt_qs.filter(started_on__lte=date_to)
+    appt_qs = appt_qs.annotate(_ml=_Lower("member__email"),
+                               _cl=_Lower("journal__commissioning_editor__email"))\
+                     .exclude(_ml=_F("_cl"))
+    counts_by_j = _Counter(appt_qs.values_list("journal_id", flat=True))
+    journal_choices = [
+        {**j, "appt_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
 
     return render(request, "editorial/approved.html", {
-        "rows": list(members.values()),
-        "total_members": len(members),
-        "total_appointments": sum(len(r["appointments"]) for r in members.values()),
+        "rows": rows,
+        "total_appointments": len(rows),
+        "total_members": distinct_members,
         "query": q,
-        "user_is_office": is_office(request.user),
+        "journal_choices": journal_choices,
+        "selected_journal": journal_id,
+        "date_from": date_from or "",
+        "date_to": date_to or "",
+        "user_is_office": user_is_office,
     })
 
 
@@ -268,6 +367,7 @@ def application(request, pk):
     from apps.identity.models import Member
     member = Member.objects.filter(email__iexact=app_data["email"]).first()
 
+    from apps.editorial.mng_client import CANONICAL_ROLES
     return render(request, "editorial/application.html", {
         "app": app_data,
         "choices": choices,
@@ -277,6 +377,7 @@ def application(request, pk):
         "appointments": (member.appointments.select_related("journal").all()
                          if member else []),
         "user_is_office": user_is_office,
+        "canonical_roles": CANONICAL_ROLES,
     })
 
 
@@ -607,13 +708,17 @@ def verify_appointment(request, pk: int):
 
 @login_required
 def apply(request):
-    """Apply for an editorial board. Decided on manuscript-ngine, not here.
+    """Apply for an editorial board.
 
-    The registry answers eleven of that form's twenty-two fields, and two of them better
-    than a form can: the publication count is counted rather than claimed, and prior
-    board service is remembered rather than retyped.
+    The registry answers most of the form from the member's existing Profile,
+    but asks for anything missing (photo, affiliation link, institutional
+    profile URL, years of experience, CV) because the office cannot evaluate
+    a half-filled application. Anything typed here is mirrored back onto the
+    Profile, so the correction updates the registry too.
     """
     known = apply_bridge.prefill(request.user)
+    journals = apply_bridge.journals_to_offer()
+    subjects = sorted({(j.subject or "").strip() for j in journals if j.subject})
 
     if request.method == "POST":
         picked = []
@@ -623,45 +728,84 @@ def apply(request):
                 picked.append({"journal": title.strip(),
                                "role": (role or "associate").strip()})
         statement = (request.POST.get("statement") or "").strip()
+        full_name = (request.POST.get("full_name") or "").strip()
+        affiliation = (request.POST.get("affiliation") or "").strip()
+        affiliation_url = (request.POST.get("affiliation_url") or "").strip()
+        inst_profile_url = (request.POST.get("institutional_profile_url") or "").strip()
+        years_exp = (request.POST.get("years_of_experience") or "").strip()
+        phone = (request.POST.get("phone") or "").strip()
+        country = (request.POST.get("country") or "").strip()
+
+        errors: list[str] = []
+        if not full_name:
+            errors.append("Please enter your full name.")
+        if not phone:
+            errors.append("Phone number is required.")
+        if not country:
+            errors.append("Country is required.")
+        if not affiliation:
+            errors.append("Affiliation is required.")
+        if not affiliation_url or "." not in affiliation_url:
+            errors.append("Please share the website URL of your affiliation.")
+        if not inst_profile_url or "." not in inst_profile_url:
+            errors.append("Please share the link to your institutional profile page.")
+        if not years_exp or not years_exp.replace(".", "", 1).isdigit():
+            errors.append("Years of experience must be a number.")
         if not picked:
-            messages.error(request, "Choose at least one journal.")
-        elif len(statement) < 40:
-            messages.error(request, "Please say a little about why — a few sentences "
-                                    "is enough, and it is the part only you can write.")
+            errors.append("Choose at least one journal.")
+        if len(statement) < 40:
+            errors.append("Please say a little about why — a few sentences is "
+                          "enough, and it is the part only you can write.")
+
+        # Photo: required if profile has none; otherwise optional (replace).
+        import os as _os
+        photo = request.FILES.get("photo")
+        if photo:
+            MAX_PHOTO = 4 * 1024 * 1024
+            PHOTO_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+            if photo.size > MAX_PHOTO:
+                errors.append("Profile photo must be under 4 MB.")
+            elif _os.path.splitext(photo.name)[1].lower() not in PHOTO_EXTS:
+                errors.append("Profile photo must be JPG, PNG or WEBP.")
+        elif not known.get("picture"):
+            errors.append("Please upload a profile photo (JPG, PNG or WEBP).")
+
+        # CV: always required for a board application.
+        cv = request.FILES.get("cv")
+        if not cv:
+            errors.append("Please attach your CV (PDF, DOC or DOCX, up to 5 MB).")
         else:
-            # wisp 2026-10-03: optional CV upload. Validated before touching the bridge.
-            cv = request.FILES.get("cv")
-            cv_ok = True
-            if cv:
-                MAX_BYTES = 5 * 1024 * 1024
-                ALLOWED = (".pdf", ".doc", ".docx")
-                import os as _os
-                ext = _os.path.splitext(cv.name)[1].lower()
-                if cv.size > MAX_BYTES:
-                    messages.error(request, "CV is larger than 5 MB. "
-                                            "Please upload a smaller file.")
-                    cv_ok = False
-                elif ext not in ALLOWED:
-                    messages.error(request, "CV must be a PDF, DOC or DOCX file.")
-                    cv_ok = False
-            if cv_ok:
-                payload = dict(known, journals=picked, statement=statement, cv_file=cv)
-                # The applicant may correct what the registry filled in; their word wins.
-                for field in ("phone", "affiliation", "designation", "department"):
-                    typed = (request.POST.get(field) or "").strip()
-                    if typed:
-                        payload[field] = typed
-                sent, detail, not_accepted = apply_bridge.send(payload)
-            else:
-                sent, detail, not_accepted = False, "", []
+            MAX_CV = 5 * 1024 * 1024
+            CV_EXTS = (".pdf", ".doc", ".docx")
+            if cv.size > MAX_CV:
+                errors.append("CV must be under 5 MB.")
+            elif _os.path.splitext(cv.name)[1].lower() not in CV_EXTS:
+                errors.append("CV must be a PDF, DOC or DOCX file.")
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            payload = dict(known,
+                           journals=picked, statement=statement,
+                           full_name=full_name, affiliation=affiliation,
+                           affiliation_url=affiliation_url,
+                           institutional_profile_url=inst_profile_url,
+                           years_of_experience=years_exp, phone=phone,
+                           country=country,
+                           cv_file=cv, photo_file=photo)
+            # The applicant may correct what the registry filled in; their word wins.
+            for field in ("designation", "department"):
+                typed = (request.POST.get(field) or "").strip()
+                if typed:
+                    payload[field] = typed
+            sent, detail, not_accepted = apply_bridge.send(payload)
             if sent:
                 messages.success(
                     request,
-                    "Your application has gone to the editorial office. They answer it "
-                    "on the editorial platform, and they will write to you there.")
+                    "Your application has reached the editorial office. "
+                    "You'll hear from them by email.")
                 if not_accepted:
-                    # Said plainly, because the application went anyway: the applicant
-                    # must not believe they applied for a journal that never got it.
                     messages.warning(
                         request,
                         "One thing: the editorial platform does not have "
@@ -669,12 +813,14 @@ def apply(request):
                         + ". The rest of your application went; write to the office if "
                           "you meant that journal.")
                 return redirect("dashboard")
-            messages.error(request, detail)
+            messages.error(request, detail or "Something went wrong — please try again.")
 
     return render(request, "editorial/apply.html", {
         "known": known,
-        "journals": apply_bridge.journals_to_offer(),
+        "journals": journals,
         "roles": apply_bridge.ROLES,
+        "subjects": subjects,
+        "countries": apply_bridge.COUNTRIES,
     })
 
 
@@ -770,12 +916,28 @@ def dashboard(request):
         total_members = None
         with_appointment = None
 
-    # Recent decisions (last 10). Attach accepted appointments per row so the
-    # dashboard can offer certificate + empanelment-letter links inline.
+    # Recent decisions table — journal + date filters apply to the table and
+    # the shown count below it, so a CE scanning for "what happened on JOEE
+    # since Monday" sees the matching rows and nothing else.
+    try:
+        rec_journal = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        rec_journal = None
+    rec_from = (request.GET.get("date_from") or "").strip() or None
+    rec_to = (request.GET.get("date_to") or "").strip() or None
+
+    decisions_qs = local_apps.exclude(decision__in=["", "pending"])
+    if rec_journal:
+        decisions_qs = decisions_qs.filter(journals__journal_id=rec_journal).distinct()
+    if rec_from:
+        decisions_qs = decisions_qs.filter(decided_at__date__gte=rec_from)
+    if rec_to:
+        decisions_qs = decisions_qs.filter(decided_at__date__lte=rec_to)
+    decisions_total = decisions_qs.count()
+
     from apps.editorial.models import Appointment
-    recent = list(local_apps.exclude(decision__in=["", "pending"])
-                  .select_related("member")
-                  .order_by("-decided_at")[:10])
+    recent = list(decisions_qs.select_related("member")
+                  .order_by("-decided_at")[:25])
     if recent:
         app_ids = [a.pk for a in recent]
         appts_by_app = {}
@@ -785,6 +947,29 @@ def dashboard(request):
             appts_by_app.setdefault(appt.application_id, []).append(appt)
         for a in recent:
             a.accepted_appts = appts_by_app.get(a.pk, [])
+
+    # Journal dropdown counts: decisions-per-journal matching the current date
+    # range. Scope matches the main table so the number next to each option
+    # reads the same.
+    from collections import Counter as _Counter
+    from apps.editorial.models import ApplicationJournal
+    base = Journal.objects.all() if office else managed
+    aj_qs = ApplicationJournal.objects.exclude(
+        application__decision__in=["", "pending"])
+    if not office:
+        aj_qs = aj_qs.filter(journal__in=base)
+    if rec_from:
+        aj_qs = aj_qs.filter(application__decided_at__date__gte=rec_from)
+    if rec_to:
+        aj_qs = aj_qs.filter(application__decided_at__date__lte=rec_to)
+    counts_by_j = _Counter()
+    for jid, aid in aj_qs.values_list("journal_id", "application_id").distinct():
+        if jid is not None:
+            counts_by_j[jid] += 1
+    journal_choices = [
+        {**j, "app_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
 
     return render(request, "editorial/dashboard.html", {
         "office": office,
@@ -798,18 +983,36 @@ def dashboard(request):
         "total_members": total_members,
         "with_appointment": with_appointment,
         "recent": recent,
+        "decisions_total": decisions_total,
+        "journal_choices": journal_choices,
+        "selected_journal": rec_journal,
+        "date_from": rec_from or "",
+        "date_to": rec_to or "",
     })
 
-@office_only
+@queue_or_manager
 def journal_manage(request, pk: int):
-    # wisp 2026-10-02: journal CE management
-    """Office page to assign / remove Commissioning Editor for a journal."""
+    """Journal profile for internal team — office or the journal's own managers.
+
+    Office may reassign the commissioning editor and append/remove Appointments.
+    A journal's own CE / EIC sees the same page in read-mostly mode: they can
+    see team, pending applications and recent decisions on their own journal
+    but can't reassign the commissioning editor.
+    """
     from django.utils import timezone
-    from apps.editorial.models import Appointment, Journal
+    from django.db.models import Count, Q
+    from apps.editorial.models import Appointment, Application, Decision, Journal
     from apps.identity.models import Member
-    journal = get_object_or_404(Journal, pk=pk)
+    journal = get_object_or_404(Journal.objects.select_related("commissioning_editor"), pk=pk)
+
+    user_is_office = is_office(request.user)
+    if not user_is_office:
+        if not manager_journals(request.user).filter(pk=pk).exists():
+            raise PermissionDenied("This journal is not one you manage.")
 
     if request.method == "POST":
+        if not user_is_office:
+            raise PermissionDenied("Only the editorial office can edit the commissioning editor here.")
         action = (request.POST.get("action") or "").strip()
         if action == "assign":
             email = (request.POST.get("email") or "").strip()
@@ -853,21 +1056,108 @@ def journal_manage(request, pk: int):
         role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
         ended_on__isnull=True)
         .select_related("member", "member__profile"))
+    # The journal's commissioning editor sits on a role mailbox like
+    # chemical@stmjournals.com. The WP import attributed every legacy editor who
+    # ever used that mailbox — EIC, Section Editor, Reviewer, Guest Editor — to
+    # the single Member record now holding that email. Those are not the CE's
+    # personal roles; strip them from the manager and board sections so the CE
+    # shows up only where they belong: as the signatory.
+    ce_email = (journal.commissioning_editor.email or "").strip().lower() \
+        if journal.commissioning_editor else ""
+    board_raw = (Appointment.objects.filter(journal=journal, ended_on__isnull=True)
+                 .exclude(role__in=["Commissioning Editor", "Editor-in-Chief",
+                                    "Associate Editor-in-chief", "Associate Editor-in-Chief"])
+                 .select_related("member", "member__profile")
+                 .order_by("member__full_name"))
+    if ce_email:
+        board_raw = board_raw.exclude(member__email__iexact=ce_email)
+        managers = managers.exclude(member__email__iexact=ce_email)
+    # Dedupe by member — the WP import collapsed multiple real people onto a
+    # single Member row when they shared a role-based mailbox, so a journal can
+    # legitimately show the same Member attached to 16 identical rows. Collapse
+    # them to one row per member with a role count beside each role.
+    import collections as _col
+    board_by_member: dict[int, dict] = {}
+    for a in board_raw:
+        row = board_by_member.setdefault(a.member_id, {
+            "member": a.member,
+            "profile": getattr(a.member, "profile", None),
+            "roles": _col.Counter(),
+        })
+        row["roles"][a.role] += 1
+    board = list(board_by_member.values())[:60]
+    for row in board:
+        row["role_summary"] = ", ".join(
+            f"{r} × {n}" if n > 1 else r
+            for r, n in sorted(row["roles"].items(), key=lambda x: (-x[1], x[0]))
+        )
+    board_total_people = len(board_by_member)
+    board_total_rows = sum(sum(r["roles"].values()) for r in board)
+
+    # Application counts for this journal.
+    app_counts = Application.objects.filter(
+        journals__journal=journal
+    ).aggregate(
+        pending=Count("pk", filter=Q(decision=Decision.PENDING), distinct=True),
+        accepted=Count("pk", filter=Q(decision=Decision.ACCEPTED), distinct=True),
+        declined=Count("pk", filter=Q(decision=Decision.DECLINED), distinct=True),
+    )
+
+    # Last 10 decided for this journal.
+    recent = (Application.objects
+              .filter(journals__journal=journal)
+              .exclude(decision__in=["", Decision.PENDING])
+              .select_related("member")
+              .order_by("-decided_at")
+              .distinct()[:10])
+
+    # Managers panel: also dedupe by member (same WP import issue).
+    mgr_by_member: dict[int, dict] = {}
+    for a in managers:
+        row = mgr_by_member.setdefault(a.member_id, {
+            "member": a.member,
+            "roles": _col.Counter(),
+            "started_on": a.started_on,
+        })
+        row["roles"][a.role] += 1
+        if a.started_on and (not row["started_on"] or a.started_on < row["started_on"]):
+            row["started_on"] = a.started_on
+    managers_dedup = list(mgr_by_member.values())
+    for row in managers_dedup:
+        row["role_summary"] = ", ".join(
+            f"{r} × {n}" if n > 1 else r
+            for r, n in sorted(row["roles"].items(), key=lambda x: (-x[1], x[0]))
+        )
 
     return render(request, "editorial/journal_manage.html", {
         "journal": journal,
         "commissioning_editors": ces,
-        "managers": managers,
+        "managers": managers_dedup,
+        "board": board,
+        "board_total_people": board_total_people,
+        "board_total_rows": board_total_rows,
+        "app_counts": app_counts,
+        "recent": recent,
+        "user_is_office": user_is_office,
     })
 
 
-@office_only
+@queue_or_manager
 def journals_index(request):
-    """Journals list with commissioning-editor filter, bulk-assign, EIC count."""
+    """Journals list.
+
+    Office sees every journal with filter + bulk-assign. A commissioning editor
+    (non-office) sees only the journals they commission — the admin tooling
+    (bulk assign, editor filter, needs_ce) is hidden from them.
+    """
     from django.db.models import Count, Q
     from apps.editorial.models import EditorialStaff, Journal
 
+    user_is_office = is_office(request.user)
+
     if request.method == "POST" and request.POST.get("action") == "assign_editor":
+        if not user_is_office:
+            raise PermissionDenied("Only the editorial office can reassign commissioning editors.")
         ids = [int(x) for x in request.POST.getlist("journal_ids") if x.isdigit()]
         editor_id = request.POST.get("editor_id") or ""
         editor = None
@@ -894,6 +1184,11 @@ def journals_index(request):
             filter=Q(appointments__role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
                      appointments__ended_on__isnull=True)),
     )
+    if not user_is_office:
+        managed_ids = list(manager_journals(request.user).values_list("id", flat=True)) or [-1]
+        journals = journals.filter(pk__in=managed_ids)
+        needs_ce = False
+        editor_filter = ""
     if q:
         journals = journals.filter(title__icontains=q)
     if needs_ce:
@@ -903,15 +1198,93 @@ def journals_index(request):
     elif editor_filter.isdigit():
         journals = journals.filter(commissioning_editor_id=int(editor_filter))
     journals = journals.order_by("commissioning_editor__name", "title")
-    editors = EditorialStaff.objects.filter(active=True).order_by("name")
+    editors = EditorialStaff.objects.filter(active=True).order_by("name") if user_is_office else EditorialStaff.objects.none()
     return render(request, "editorial/journals_index.html", {
         "journals": journals,
         "q": q,
         "needs_ce": needs_ce,
         "editor_filter": editor_filter,
         "editors": editors,
+        "user_is_office": user_is_office,
         "total": journals.count(),
         "without_ce": journals.filter(commissioning_editor__isnull=True).count(),
+    })
+
+
+@office_only
+def emails_log(request):
+    """Office view of outgoing mail — every message the system sent, newest first."""
+    from apps.identity.models import EmailLog
+    q = (request.GET.get("q") or "").strip()
+    kind = (request.GET.get("kind") or "").strip()
+    status = (request.GET.get("status") or "").strip()
+    logs = EmailLog.objects.select_related("related_member")
+    if q:
+        logs = logs.filter(Q(to_address__icontains=q) | Q(subject__icontains=q))
+    if kind:
+        logs = logs.filter(kind=kind)
+    if status:
+        logs = logs.filter(status=status)
+    total = logs.count()
+    logs = list(logs[:200])
+    kinds = (EmailLog.objects.values_list("kind", flat=True)
+             .exclude(kind="").distinct().order_by("kind"))
+    return render(request, "editorial/emails_log.html", {
+        "logs": logs, "total": total, "shown": len(logs),
+        "q": q, "kind": kind, "status": status,
+        "kinds": list(kinds),
+        "statuses": EmailLog.Status.choices,
+    })
+
+
+@office_only
+def email_log_detail(request, pk: int):
+    """One email's full body — the office pulls it when a user asks what they got."""
+    from apps.identity.models import EmailLog
+    log = get_object_or_404(EmailLog.objects.select_related("related_member"), pk=pk)
+    return render(request, "editorial/email_log_detail.html", {"log": log})
+
+
+@office_only
+def email_templates_index(request):
+    """List all editable email templates by category."""
+    from apps.identity.models import EmailTemplate
+    from apps.identity import email_templates as _et
+    _et.ensure_seeded()
+    templates = EmailTemplate.objects.order_by("name")
+    return render(request, "editorial/email_templates.html", {
+        "templates": templates,
+    })
+
+
+@office_only
+def email_template_edit(request, pk: int):
+    """Edit the subject + body for one email category."""
+    from apps.identity.models import EmailTemplate
+    from apps.identity import email_templates as _et
+    tmpl = get_object_or_404(EmailTemplate, pk=pk)
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        if action == "reset":
+            d = _et.default_for(tmpl.category)
+            tmpl.subject = d["subject"]
+            tmpl.body = d["body"]
+            tmpl.variables_help = d["variables_help"]
+            tmpl.enabled = True
+            tmpl.save()
+            messages.success(request, f"Reset {tmpl.name} to the shipping default.")
+            return redirect("email-template-edit", pk=pk)
+        tmpl.name = (request.POST.get("name") or tmpl.name).strip()[:120]
+        tmpl.subject = (request.POST.get("subject") or "").strip()[:500]
+        tmpl.body = request.POST.get("body") or ""
+        tmpl.enabled = "enabled" in request.POST
+        tmpl.save()
+        messages.success(request, f"Saved {tmpl.name}.")
+        return redirect("email-template-edit", pk=pk)
+    return render(request, "editorial/email_template_edit.html", {
+        "tmpl": tmpl,
+        "default_subject": _et.default_for(tmpl.category)["subject"],
+        "default_body": _et.default_for(tmpl.category)["body"],
     })
 
 

@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}Board application workflow · APID{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Board application workflow{% endblock %}
+{% block office_style %}
  .mermaid { background:#fff; padding:20px; border:1px solid var(--line); border-radius:10px; }
  .legend { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:20px;
            font-size:13px; }
@@ -15,7 +15,8 @@
  table.summary th { background:#f8fafc; }
  code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:13px; }
 {% endblock %}
-{% block content %}
+{% block office_section %}flow{% endblock %}
+{% block office_main %}
 <div class="card">
   <h1>Editorial board — workflow map</h1>
   <p class="muted small">

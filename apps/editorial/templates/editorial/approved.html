@@ -1,84 +1,118 @@
-{% extends "profiles/base.html" %}
-{% block title %}Approved profiles · APID office{% endblock %}
-{% block style %}{% include "members/_style.html" %}
- .wrap-pad { padding: 24px; }
- .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px;
-            margin: 10px 0 20px; flex-wrap:wrap; }
- .toolbar .counts { font-size:14px; color:var(--muted); }
- .toolbar .search input { padding:8px 12px; border:1px solid var(--line); border-radius:8px;
-                         font-size:14px; width:280px; }
- .toolbar .search button { padding:8px 14px; border-radius:8px; border:0;
-                           background:var(--primary); color:#fff; font-weight:600; }
- .mcard { display:flex; align-items:flex-start; gap:14px; padding:14px 16px;
-          border:1px solid var(--line); border-radius:10px; background:#fff; margin-bottom:10px; }
- .mcard .avatar { width:52px; height:52px; border-radius:50%; object-fit:cover;
-                  background:#eef2f6; border:1px solid var(--line); flex:none; }
- .mcard .avatar.empty { display:flex; align-items:center; justify-content:center;
-                        font-size:20px; font-weight:700; color:#6b7a90; }
- .mcard .m-name { font-size:16px; font-weight:600; margin:0 0 2px; }
- .mcard .m-name a { color:var(--ink); }
- .mcard .m-name a:hover { color:var(--primary); }
- .mcard .m-meta { font-size:13px; color:var(--muted); }
- .appts { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
- .appt { font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
- .appt .j { font-weight:500; }
- .appt .r { color:var(--muted); font-size:12px; }
- .appt .dl { font-size:12px; }
- .appt .dl a { color:var(--primary); }
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Approved profiles{% endblock %}
+{% block office_style %}
+ .filter-bar { background:#fff; border:1px solid var(--line); border-radius:10px;
+               padding:12px 16px; margin:14px 0 10px;
+               display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+ .filter-bar label { display:block; font-size:11px; color:var(--muted);
+                     text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; font-weight:600; }
+ .filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--line);
+                                         border-radius:6px; font-size:13px; font-family:inherit; }
+ .filter-bar select, .filter-bar input[type=text] { min-width:200px; }
+ .filter-bar button { padding:8px 16px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+ .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
+ .filter-bar .clear:hover { color:var(--primary); }
+
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note strong { color:var(--ink); }
+
+ table.datatable { width:100%; border-collapse:collapse; background:#fff;
+                   border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ table.datatable thead th { background:#f8fafc; text-align:left; padding:10px 14px;
+                            font-size:12px; text-transform:uppercase; letter-spacing:.05em;
+                            color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
+ table.datatable tbody td { padding:10px 14px; border-top:1px solid var(--line);
+                            font-size:14px; vertical-align:top; }
+ table.datatable tbody tr:first-child td { border-top:0; }
+ table.datatable tbody tr:hover { background:#f8fafc; }
+ table.datatable .avatar { width:32px; height:32px; border-radius:50%; object-fit:cover;
+                           background:#eef2f6; display:inline-block; vertical-align:middle;
+                           margin-right:8px; }
+ table.datatable .avatar.empty { background:var(--primary-light); color:var(--primary);
+                                 text-align:center; line-height:32px; font-weight:700; font-size:13px; }
+ table.datatable .who-name { font-weight:600; }
+ table.datatable .who-name a { color:var(--ink); }
+ table.datatable .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ table.datatable .when { white-space:nowrap; color:var(--muted); font-size:12px; }
+ table.datatable .empty-row { text-align:center; padding:28px; color:var(--muted); font-size:14px; }
+ table.datatable .artifacts { font-size:12px; display:flex; gap:10px; }
+ table.datatable .artifacts a { color:var(--primary); }
 {% endblock %}
-{% block content %}
-<div class="wrap-pad">
-  <h1 style="margin:0">Approved profiles</h1>
-  <p class="muted small" style="margin:4px 0 0">Every member with an active editorial appointment.
-    {% if not user_is_office %}Showing journals you manage.{% endif %}
-  </p>
+{% block office_section %}approved{% endblock %}
+{% block office_main %}
+<h1 style="margin:0">Approved profiles</h1>
+<p class="muted small" style="margin:4px 0 0">Every active editorial appointment.
+  {% if not user_is_office %}Showing journals you manage.{% endif %}
+</p>
 
-  <div class="toolbar">
-    <div class="counts">
-      <strong>{{ total_members }}</strong> member{{ total_members|pluralize }}
-      ·  <strong>{{ total_appointments }}</strong> active appointment{{ total_appointments|pluralize }}
-    </div>
-    <form class="search" method="get">
-      <input type="text" name="q" value="{{ query }}" placeholder="Name, email, journal or role">
-      <button type="submit">Search</button>
-    </form>
+<form class="filter-bar" method="get">
+  <div>
+    <label for="a-journal">Journal</label>
+    <select id="a-journal" name="journal">
+      <option value="">All journals</option>
+      {% for j in journal_choices %}
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }} · {{ j.appt_count }}</option>
+      {% endfor %}
+    </select>
   </div>
+  <div>
+    <label for="a-from">Since from</label>
+    <input id="a-from" type="date" name="date_from" value="{{ date_from }}">
+  </div>
+  <div>
+    <label for="a-to">to</label>
+    <input id="a-to" type="date" name="date_to" value="{{ date_to }}">
+  </div>
+  <div>
+    <label for="a-text">Search</label>
+    <input id="a-text" type="text" name="q" value="{{ query }}" placeholder="Name, email, APID, journal or role">
+  </div>
+  <button type="submit">Apply</button>
+  {% if selected_journal or date_from or date_to or query %}
+    <a class="clear" href="?">Clear</a>
+  {% endif %}
+</form>
 
-  {% for row in rows %}
-    <div class="mcard">
-      {% if row.profile and row.profile.picture %}
-        <img class="avatar" src="/media/{{ row.profile.picture }}" alt="{{ row.member.display_name }}">
-      {% else %}
-        <div class="avatar empty">{{ row.member.display_name|slice:":1"|upper }}</div>
-      {% endif %}
-      <div style="flex:1">
-        <p class="m-name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name|default:row.member.username }}</a>
-          <span class="muted small" style="font-weight:400"> · APID {{ row.member.apid }}</span></p>
-        <div class="m-meta">
-          {% if row.profile.designation %}{{ row.profile.designation }}{% endif %}
-          {% if row.profile.designation and row.profile.affiliation %} · {% endif %}
-          {% if row.profile.affiliation %}{{ row.profile.affiliation }}{% endif %}
-          {% if row.profile.country %} · {{ row.profile.country }}{% endif %}
-        </div>
-        <div class="appts">
-          {% for a in row.appointments %}
-            <div class="appt">
-              <span class="j">{{ a.journal.title }}</span>
-              <span class="r">— {{ a.role }} {% if a.started_on %}· since {{ a.started_on|date:"M Y" }}{% endif %}</span>
-              <span class="dl">
-                <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
-                &middot; <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
-              </span>
-            </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-  {% empty %}
-    <div class="empty">
-      {% if query %}No matches for "{{ query }}". <a href="{% url 'approved-profiles' %}">Clear search</a>.
-      {% else %}No active appointments.{% endif %}
-    </div>
-  {% endfor %}
-</div>
+<p class="count-note"><strong>{{ total_appointments }}</strong> appointment{{ total_appointments|pluralize }} across <strong>{{ total_members }}</strong> member{{ total_members|pluralize }}.</p>
+
+<table class="datatable">
+  <thead>
+    <tr>
+      <th>Member</th>
+      <th>APID</th>
+      <th>Journal</th>
+      <th>Role</th>
+      <th>Since</th>
+      <th>Artifacts</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for a in rows %}
+      <tr>
+        <td>
+          {% if a.member.profile and a.member.profile.picture %}
+            <img class="avatar" src="/media/{{ a.member.profile.picture }}" alt="">
+          {% else %}
+            <span class="avatar empty">{{ a.member.display_name|slice:":1"|upper }}</span>
+          {% endif %}
+          <span class="who-name"><a href="{% url 'profile' a.member.apid %}">{{ a.member.display_name|default:a.member.username }}</a></span>
+          <div class="meta">{{ a.member.email }}</div>
+        </td>
+        <td>{{ a.member.apid }}</td>
+        <td>{{ a.journal.abbreviation|default:a.journal.title|default:"—" }}</td>
+        <td>{{ a.role }}</td>
+        <td class="when">{% if a.started_on %}{{ a.started_on|date:"M Y" }}{% else %}—{% endif %}</td>
+        <td>
+          <div class="artifacts">
+            <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
+            <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
+          </div>
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="6" class="empty-row">{% if query or selected_journal or date_from or date_to %}No matches for these filters.{% else %}No active appointments.{% endif %}</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

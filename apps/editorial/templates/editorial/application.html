@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}{{ app.name|default:"Application" }} — application · APID{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ app.name|default:"Application" }} — application{% endblock %}
+{% block office_style %}
  .head { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
  .avatar { width:96px; height:96px; border-radius:8px; object-fit:cover;
            border:1px solid var(--line); background:#eef2f6; flex:none; }
@@ -48,7 +48,8 @@
    .choice-form .decide-actions button { flex:1; min-width:100px; }
  }
 {% endblock %}
-{% block content %}
+{% block office_section %}queue{% endblock %}
+{% block office_main %}
 {% if messages %}{% for m in messages %}<div class="note-banner">{{ m }}</div>{% endfor %}{% endif %}
 <div class="card">
   <div class="head">
@@ -130,7 +131,11 @@
             <input type="hidden" name="choice_id" value="{{ c.choice_id }}">
             <div class="row">
               <label>Role on appointment (used only if accepted)</label>
-              <input type="text" name="role" value="{{ c.role_appointed|default:app.applying_for|default:'Reviewer' }}">
+              <select name="role">
+                {% for opt in canonical_roles %}
+                  <option value="{{ opt }}" {% if c.canonical_role == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div class="row">
               <label>Decision note (optional)</label>

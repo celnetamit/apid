@@ -1,62 +1,43 @@
-{% extends "profiles/base.html" %}
-{% block title %}Editorial staff — APID Office{% endblock %}
-{% block style %}
- .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
- .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; }
- .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
- .page-head .crumb a { color:#dbeafe; }
- .page-head p { color:#cbd5e1; margin:0; font-size:14px; }
- .page-head .n { color:#F5A623; font-weight:700; }
- .toolbar { display:flex; gap:12px; align-items:center; margin-bottom:16px; }
- .toolbar input[type=search] { flex:1; max-width:360px; }
- .toolbar .spacer { flex:1; }
- .toolbar .btn { padding:9px 16px; background:var(--primary); color:#fff; border-radius:6px; font-weight:600; }
- .e-table { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
- .e-row { display:grid; grid-template-columns:1fr 1fr 100px 110px; gap:16px; padding:14px 20px; border-top:1px solid var(--line); align-items:center; }
- .e-row:first-child { border-top:0; }
- .e-row.head { background:var(--soft); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; }
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Editorial staff{% endblock %}
+{% block office_section %}editors{% endblock %}
+{% block office_navsub %}Staff roster{% endblock %}
+{% block office_style %}
+ .e-row { grid-template-columns:1fr 1fr 100px 110px; }
  .e-name { color:var(--ink); font-weight:600; font-size:14px; }
  .e-sub { color:var(--muted); font-size:12px; margin-top:2px; }
  .inactive { opacity:0.55; }
- .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; background:#eef2ff; color:#3730a3; }
- .pill.off { background:#fee; color:#8c2b23; }
  .count { font-weight:700; font-variant-numeric:tabular-nums; text-align:center; }
  .count a { color:var(--primary); }
  .act { text-align:right; }
- .act a { font-size:13px; color:var(--primary); font-weight:500; margin-left:10px; }
  @media (max-width:720px) { .e-row { grid-template-columns:1fr auto; } .e-sub, .count { display:none; } }
 {% endblock %}
 
-{% block content %}
-<div class="page-head">
-  <div class="wrap">
-    <div class="crumb"><a href="/office/">Office</a> · <a href="{% url 'journals-index' %}">Journals</a> · Editorial staff</div>
-    <h1>Editorial staff</h1>
-    <p><span class="n">{{ total }}</span> staff members · one record per person, mapped to every journal they commission</p>
-  </div>
-</div>
-<div class="wrap">
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · Editorial staff</div>
+  <h1>Editorial staff <span class="pill info" style="vertical-align:middle;margin-left:10px">{{ total }}</span></h1>
+  <p>One record per person — edit once, every journal they commission picks it up.</p>
+</header>
 
-{% if messages %}{% for m in messages %}<div class="card" style="margin-bottom:14px;padding:12px 18px">{{ m }}</div>{% endfor %}{% endif %}
-
-<form method="get" class="toolbar">
+<form method="get" class="office-toolbar">
   <input type="search" name="q" placeholder="Search by name or email…" value="{{ q }}">
-  <button type="submit">Search</button>
+  <button type="submit" class="btn-outline">Search</button>
   <span class="spacer"></span>
-  <a class="btn" href="{% url 'editor-new' %}">+ New editor</a>
+  <a class="btn-primary" href="{% url 'editor-new' %}">+ New editor</a>
 </form>
 
-<div class="e-table">
-  <div class="e-row head">
+<div class="panel office-list">
+  <div class="row head e-row">
     <div>Name</div>
     <div>Email · phone</div>
     <div style="text-align:center">Journals</div>
     <div class="act">&nbsp;</div>
   </div>
   {% for e in editors %}
-    <div class="e-row {% if not e.active %}inactive{% endif %}">
+    <div class="row e-row {% if not e.active %}inactive{% endif %}">
       <div>
-        <div class="e-name">{{ e.name }} {% if not e.active %}<span class="pill off">inactive</span>{% endif %}</div>
+        <div class="e-name">{{ e.name }} {% if not e.active %}<span class="pill no">inactive</span>{% endif %}</div>
         <div class="e-sub">{{ e.designation }}</div>
       </div>
       <div>
@@ -64,16 +45,12 @@
         {% if e.phone %}<div class="e-sub">{{ e.phone }}</div>{% endif %}
       </div>
       <div class="count">
-        {% if e.journal_count %}
-          <a href="{% url 'journals-index' %}?editor={{ e.pk }}">{{ e.journal_count }}</a>
-        {% else %}0{% endif %}
+        {% if e.journal_count %}<a href="{% url 'journals-index' %}?editor={{ e.pk }}">{{ e.journal_count }}</a>{% else %}0{% endif %}
       </div>
       <div class="act"><a href="{% url 'editor-edit' e.pk %}">Edit →</a></div>
     </div>
   {% empty %}
-    <div class="e-row"><div style="grid-column:1/-1;color:var(--muted);text-align:center">No editors yet — click <strong>New editor</strong> above to add one.</div></div>
+    <div class="row"><div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px">No editors yet — click <strong>New editor</strong> above to add one.</div></div>
   {% endfor %}
-</div>
-
 </div>
 {% endblock %}

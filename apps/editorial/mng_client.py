@@ -56,14 +56,63 @@ def _signed(path: str, params: dict | None = None, timeout: int = 10):
         return json.loads(r.read().decode("utf-8"))
 
 
-def queue_summary(journal_ids: list[int] | None = None) -> dict:
+#: The dropdown shown on a decision form. Free text is accepted on the backend
+#: (plenty of legacy roles in the data) but new decisions pick from this list.
+CANONICAL_ROLES: tuple[str, ...] = (
+    "Reviewer",
+    "Editorial Board Member",
+    "Section Editor",
+    "Associate Editor",
+    "Managing Editor",
+    "Co-Editor-in-Chief",
+    "Editor-in-Chief",
+    "Chief Editor",
+)
+
+
+def _canonical_role(raw: str | None) -> str:
+    """Map a free-text appointment role to the closest canonical option."""
+    if not raw:
+        return "Reviewer"
+    s = raw.strip().lower()
+    if "co" in s[:4] and "chief" in s:
+        return "Co-Editor-in-Chief"
+    if "editor-in-chief" in s or "editor in chief" in s or s == "eic":
+        return "Editor-in-Chief"
+    if "chief editor" in s:
+        return "Chief Editor"
+    if "managing" in s:
+        return "Managing Editor"
+    if "section editor" in s:
+        return "Section Editor"
+    if "associate" in s:
+        return "Associate Editor"
+    if "editorial board" in s or "editorial member" in s or "editorial board member" in s:
+        return "Editorial Board Member"
+    if "reviewer" in s:
+        return "Reviewer"
+    return "Reviewer"
+
+
+def queue_summary(journal_ids: list[int] | None = None, *,
+                  journal_id: int | None = None,
+                  date_from: str | None = None,
+                  date_to: str | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native decisions
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
-    # sees counts for their own journals.
+    # sees counts for their own journals; plus optional single-journal and
+    # date-range filters so the per-tab counts reflect what the user is
+    # looking at, not the whole system.
     from apps.editorial.models import Application, Decision
     qs = Application.objects.all()
     if journal_ids is not None:
         qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
+    if journal_id:
+        qs = qs.filter(journals__journal_id=journal_id).distinct()
+    if date_from:
+        qs = qs.filter(applied_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(applied_at__date__lte=date_to)
     return {
         "new": qs.filter(decision=Decision.PENDING).count(),
         "under_review": 0,
@@ -78,10 +127,14 @@ def _queue_summary_legacy_mng() -> dict:
 
 def queue(*, status: str | None = None, journal: str | None = None,
           q: str | None = None, page: int = 1, page_size: int = 50,
-          journal_ids: list[int] | None = None) -> dict:
+          journal_ids: list[int] | None = None,
+          journal_id: int | None = None,
+          date_from: str | None = None,
+          date_to: str | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native queue from local DB
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
-    # sees applications naming at least one of their journals.
+    # sees applications naming at least one of their journals; plus single
+    # journal + applied-date range filters for the per-view toolbar.
     from apps.editorial.models import Application, Decision
     from django.db.models import Q
     qs = (Application.objects
@@ -98,6 +151,12 @@ def queue(*, status: str | None = None, journal: str | None = None,
         qs = qs.filter(decision=Decision.WITHDRAWN)
     if journal_ids is not None:
         qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
+    if journal_id:
+        qs = qs.filter(journals__journal_id=journal_id).distinct()
+    if date_from:
+        qs = qs.filter(applied_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(applied_at__date__lte=date_to)
     if q:
         qs = qs.filter(Q(member__full_name__icontains=q)
                        | Q(member__email__icontains=q)
@@ -117,7 +176,10 @@ def queue(*, status: str | None = None, journal: str | None = None,
             "email": getattr(a.member, "email", "") if a.member else "",
             "role": a.applying_for or "",
             "subject": a.subject or "",
-            "journals": ", ".join([(j.journal.title if j.journal else j.stated_title) for j in js if (j.journal or j.stated_title)]),
+            "journals": ", ".join([
+                (j.journal.abbreviation or j.journal.title) if j.journal else j.stated_title
+                for j in js if (j.journal or j.stated_title)
+            ]),
             "status": a.decision or "pending",
             "status_display": a.get_decision_display(),
             "applied_at": a.applied_at,
@@ -153,6 +215,7 @@ def application_detail(pk: str) -> dict:
             "role": a.applying_for or "",
             "role_display": a.applying_for or "—",
             "role_appointed": j.role_appointed or (a.applying_for or ""),
+            "canonical_role": _canonical_role(j.role_appointed or a.applying_for),
             "status": j.decision or "pending",
             "status_display": j.get_decision_display(),
             "preference": j.preference,

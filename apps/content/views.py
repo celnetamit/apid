@@ -90,19 +90,50 @@ def home_marketing(request):
     })
 
 from django.core.paginator import Paginator
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value, When
 
 
 def apid_profiles(request):
-    # wisp 2026-10-02: live profile showcase
-    """Live profile grid, 24 per page. Prefers profiles with photos."""
+    """Live profile grid, 24 per page.
+
+    Completed profiles — picture, role, biography, ORCID, expertise — surface
+    first so a visitor landing cold sees finished work, not empty cards. Within
+    the same completeness bracket, newest joiners first.
+
+    Page 1 is open to the public (Google needs to index it); page 2 onwards
+    asks for sign-in — browsing 13,500 scholars anonymously is a scraper's
+    job, not a visitor's.
+    """
     from apps.profiles.models import Profile
+    page_number = request.GET.get("page") or "1"
+    if not request.user.is_authenticated:
+        try:
+            if int(page_number) > 1:
+                from django.shortcuts import redirect
+                return redirect(
+                    f"/accounts/login/?next=/apid-profiles/?page={page_number}")
+        except (TypeError, ValueError):
+            pass
+    one, zero = Value(1), Value(0)
+    def flag(**lookup):
+        return Case(When(then=zero, **lookup), default=one,
+                    output_field=IntegerField())
     qs = (Profile.objects
           .select_related("member")
           .exclude(affiliation="")
-          .order_by("-picture", "-member__date_joined"))
+          .annotate(
+              has_picture=flag(picture=""),
+              has_role=Case(
+                  When(Q(designation="") & Q(department=""), then=zero),
+                  default=one, output_field=IntegerField()),
+              has_bio=flag(biography=""),
+              has_orcid=flag(orcid=""),
+              has_expertise=flag(expertise=""),
+          )
+          .order_by("-has_picture", "-has_role", "-has_bio",
+                   "-has_orcid", "-has_expertise", "-member__date_joined"))
     paginator = Paginator(qs, 24)
-    page_obj = paginator.get_page(request.GET.get("page"))
+    page_obj = paginator.get_page(page_number)
     return render(request, "content/apid_profiles.html", {
         "profiles": page_obj.object_list,
         "page_obj": page_obj,

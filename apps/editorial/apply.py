@@ -43,6 +43,56 @@ from apps.works.orcid import normalise_id
 TIMEOUT = 20
 
 #: What manuscript-ngine calls the roles. Sent as its vocabulary, not ours — the two
+#: ISO 3166-1 common countries, enough for the registry's known distribution.
+#: The full UN list rendered inline keeps the picker self-contained — no CDN
+#: and no new HTTP call just to populate a select.
+COUNTRIES: tuple[str, ...] = (
+    "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda",
+    "Argentina", "Armenia", "Australia", "Austria", "Azerbaijan",
+    "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", "Belize",
+    "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
+    "Brunei", "Bulgaria", "Burkina Faso", "Burundi",
+    "Cabo Verde", "Cambodia", "Cameroon", "Canada", "Central African Republic",
+    "Chad", "Chile", "China", "Colombia", "Comoros", "Congo (Brazzaville)",
+    "Congo (Kinshasa)", "Costa Rica", "Côte d'Ivoire", "Croatia", "Cuba", "Cyprus",
+    "Czechia",
+    "Denmark", "Djibouti", "Dominica", "Dominican Republic",
+    "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia",
+    "Eswatini", "Ethiopia",
+    "Fiji", "Finland", "France",
+    "Gabon", "Gambia", "Georgia", "Germany", "Ghana", "Greece", "Grenada",
+    "Guatemala", "Guinea", "Guinea-Bissau", "Guyana",
+    "Haiti", "Honduras", "Hong Kong", "Hungary",
+    "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel", "Italy",
+    "Jamaica", "Japan", "Jordan",
+    "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait", "Kyrgyzstan",
+    "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein",
+    "Lithuania", "Luxembourg",
+    "Macao", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta",
+    "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia",
+    "Moldova", "Monaco", "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar",
+    "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", "Nicaragua",
+    "Niger", "Nigeria", "North Korea", "North Macedonia", "Norway",
+    "Oman",
+    "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay",
+    "Peru", "Philippines", "Poland", "Portugal",
+    "Qatar",
+    "Romania", "Russia", "Rwanda",
+    "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines",
+    "Samoa", "San Marino", "São Tomé and Príncipe", "Saudi Arabia", "Senegal",
+    "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", "Slovenia",
+    "Solomon Islands", "Somalia", "South Africa", "South Korea", "South Sudan",
+    "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+    "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo",
+    "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", "Turkmenistan", "Tuvalu",
+    "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", "United States",
+    "Uruguay", "Uzbekistan",
+    "Vanuatu", "Vatican City", "Venezuela", "Vietnam",
+    "Yemen",
+    "Zambia", "Zimbabwe",
+)
+
+
 #: systems having different words for the same role is exactly how a mapping rots.
 ROLES = [("associate", "Associate Editor"),
          ("section", "Section Editor"),
@@ -70,6 +120,7 @@ def prefill(member) -> Dict[str, Any]:
         "email": member.email,
         "phone": member.contact_number or "",
         "country": (member.country or "")[:2].upper(),
+        "country_full": member.country or "",
         "affiliation": getattr(profile, "affiliation", "") or "",
         "designation": getattr(profile, "designation", "") or "",
         "department": getattr(profile, "department", "") or "",
@@ -81,7 +132,9 @@ def prefill(member) -> Dict[str, Any]:
         "highest_degree": getattr(profile, "academic_qualification", "") or "",
         "subject_areas": (getattr(profile, "expertise", "") or "")[:255],
         "institution_url": getattr(profile, "affiliation_url", "") or "",
+        "institutional_profile_url": getattr(profile, "institutional_profile_url", "") or "",
         "years_of_experience": _years(getattr(profile, "experience_years", "")),
+        "picture": getattr(profile, "picture", "") or "",
         # Counted, not claimed.
         "publications": member.publications.count(),
         # Remembered, not retyped.
@@ -102,9 +155,14 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
     """`(sent, message, journals_not_accepted)`. Native implementation: creates a local
     Application record (and ApplicationJournal rows) in APID's own database.
     Decisions are made on apid.celnet.in now; mng is not called.
+
+    Side effect: this also writes any corrected profile fields back to the member's
+    Profile and Member row, so the registry stays current with what the applicant
+    just typed. The editorial office sees the latest data on the next page load.
     """
     from apps.identity.models import Member
     from apps.editorial.models import Application, ApplicationJournal, Decision, Journal
+    from apps.profiles.models import Profile
 
     email = (payload.get("email") or "").strip()
     if not email:
@@ -116,6 +174,49 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
     picks = payload.get("journals") or []
     if not picks:
         return False, "Choose at least one journal.", []
+
+    # Mirror the typed form fields back onto the member + profile so the registry
+    # reflects what the applicant just said about themselves.
+    full_name = (payload.get("full_name") or "").strip()
+    if full_name and full_name != member.full_name:
+        member.full_name = full_name[:200]
+        member.save(update_fields=["full_name"])
+    profile, _ = Profile.objects.get_or_create(member=member)
+    profile_updates = {}
+    for src, dst, cap in (
+        ("affiliation", "affiliation", 255),
+        ("affiliation_url", "affiliation_url", 500),
+        ("institutional_profile_url", "institutional_profile_url", 500),
+        ("designation", "designation", 160),
+        ("department", "department", 255),
+    ):
+        value = (payload.get(src) or "").strip()
+        if value:
+            profile_updates[dst] = value[:cap]
+    years = (payload.get("years_of_experience") or "").strip()
+    if years:
+        profile_updates["experience_years"] = years[:40]
+    photo = payload.get("photo_file")
+    if photo is not None:
+        from django.core.files.storage import default_storage
+        import os as _os
+        ext = _os.path.splitext(photo.name)[1].lower() or ".jpg"
+        safe_name = f"profiles/{member.apid}{ext}"
+        path = default_storage.save(safe_name, photo)
+        profile_updates["picture"] = path
+    for k, v in profile_updates.items():
+        setattr(profile, k, v)
+    if profile_updates:
+        profile.save()
+    update_fields: list[str] = []
+    if (payload.get("phone") or "").strip():
+        member.contact_number = payload["phone"].strip()[:40]
+        update_fields.append("contact_number")
+    if (payload.get("country") or "").strip():
+        member.country = payload["country"].strip()[:80]
+        update_fields.append("country")
+    if update_fields:
+        member.save(update_fields=update_fields)
 
     not_matched: List[str] = []
     create_kwargs = dict(

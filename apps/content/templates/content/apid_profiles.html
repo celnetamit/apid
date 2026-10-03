@@ -60,7 +60,7 @@
 
 <div class="search-bar">
   <form action="/directory/" method="get">
-    <input type="search" name="q" placeholder="Search by name, affiliation, expertise or ORCID…" value="{{ request.GET.q|default:'' }}">
+    <input type="search" name="q" placeholder="Search by APID, name, email, affiliation, expertise or ORCID…" value="{{ request.GET.q|default:'' }}">
     <button type="submit">Search</button>
   </form>
 </div>

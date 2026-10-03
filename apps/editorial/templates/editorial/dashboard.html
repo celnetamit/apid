@@ -1,288 +1,166 @@
-{% extends "profiles/base.html" %}
-{% block title %}Editorial Office — APID{% endblock %}
-{% block style %}
- /* Office shell — sidebar + main. Blue APID brand kept. */
- main { padding:0 0 48px !important; }
- .office-shell { display:grid; grid-template-columns:240px 1fr; gap:0;
-                 min-height:calc(100vh - 72px); background:#f7f9fc; }
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Dashboard{% endblock %}
+{% block office_section %}dashboard{% endblock %}
+{% block office_navsub %}{% if office %}Full access{% else %}{{ managed.count }} journal{{ managed.count|pluralize }}{% endif %}{% endblock %}
+{% block office_style %}
+ .filter-bar { background:#fff; border:1px solid var(--line); border-radius:10px;
+               padding:12px 16px; margin:16px 0 12px;
+               display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+ .filter-bar label { display:block; font-size:11px; color:var(--muted);
+                     text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; font-weight:600; }
+ .filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--line);
+                                         border-radius:6px; font-size:13px; font-family:inherit; }
+ .filter-bar select { min-width:220px; }
+ .filter-bar button { padding:8px 16px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+ .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
+ .filter-bar .clear:hover { color:var(--primary); }
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note strong { color:var(--ink); }
 
- .office-nav { background:#fff; border-right:1px solid var(--line);
-               padding:28px 16px; position:sticky; top:0; align-self:start;
-               height:calc(100vh - 72px); overflow-y:auto; }
- .office-nav .head { padding:0 10px 12px; }
- .office-nav .head .title { font-size:17px; font-weight:800; color:var(--ink); letter-spacing:-0.01em; }
- .office-nav .head .sub { font-size:11px; color:var(--muted); text-transform:uppercase;
-                          letter-spacing:0.08em; margin-top:3px; font-weight:600; }
- .office-nav a { display:flex; align-items:center; gap:12px; padding:10px 12px;
-                 color:var(--ink); font-size:14px; font-weight:500;
-                 border-radius:8px; margin:2px 0; }
- .office-nav a:hover { background:var(--primary-light); color:var(--primary-dark); }
- .office-nav a.active { background:var(--primary); color:#fff; }
- .office-nav a.active:hover { background:var(--primary-dark); color:#fff; }
- .office-nav .ico { width:20px; height:20px; display:inline-flex; align-items:center;
-                    justify-content:center; font-size:14px; opacity:0.9; }
- .office-nav .divider { height:1px; background:var(--line); margin:14px 10px; }
- .office-nav .foot { padding:0 10px; color:var(--muted); font-size:12px; }
-
- .office-main { padding:32px 40px; min-width:0; }
-
- /* Page header */
- .office-head { margin-bottom:28px; }
- .office-head h1 { font-size:28px; font-weight:800; margin:0 0 6px; letter-spacing:-0.02em; }
- .office-head p { margin:0; color:var(--muted); font-size:15px; }
-
- /* KPI tiles — RevuMate pattern, APID blue accent */
- .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px; }
- .kpi { background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px;
-        display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
-        text-decoration:none; color:inherit; transition:all .15s; }
- .kpi:hover { border-color:var(--primary); box-shadow:0 10px 24px rgba(15,27,45,0.06);
-              transform:translateY(-1px); color:inherit; }
- .kpi .label { font-size:12px; color:var(--muted); text-transform:uppercase;
-               letter-spacing:0.06em; font-weight:600; margin-bottom:10px; }
- .kpi .n { font-size:30px; font-weight:800; letter-spacing:-0.02em; color:var(--ink); line-height:1; }
- .kpi .sub { font-size:12px; color:var(--muted); margin-top:8px; }
- .kpi .icon { width:40px; height:40px; border-radius:10px; display:flex;
-              align-items:center; justify-content:center; font-size:18px;
-              background:var(--primary-light); color:var(--primary); flex-shrink:0; }
- .kpi .icon.ok { background:#d1fae5; color:#047857; }
- .kpi .icon.no { background:#fee2e2; color:#b91c1c; }
- .kpi .icon.yellow { background:#fff4de; color:#b45309; }
-
- /* Panels */
- .panel-grid { display:grid; grid-template-columns:2fr 1fr; gap:20px; align-items:start; }
- @media (max-width:1100px) { .panel-grid { grid-template-columns:1fr; } }
- .panel { background:#fff; border:1px solid var(--line); border-radius:12px; }
- .panel .ph { padding:18px 22px; border-bottom:1px solid var(--line);
-              display:flex; justify-content:space-between; align-items:center; }
- .panel .ph h2 { font-size:16px; font-weight:700; margin:0; }
- .panel .ph a { font-size:13px; color:var(--primary); font-weight:500; }
-
- /* Recent-decisions list */
- .decisions .row { display:flex; align-items:flex-start; gap:14px; padding:14px 22px;
-                   border-bottom:1px solid var(--line); }
- .decisions .row:last-child { border-bottom:0; }
- .decisions .avatar { width:36px; height:36px; border-radius:50%;
-                      background:var(--primary-light); color:var(--primary);
-                      display:flex; align-items:center; justify-content:center;
-                      font-weight:700; font-size:13px; flex-shrink:0; }
- .decisions .who { flex:1; min-width:0; }
- .decisions .who .name { font-weight:600; font-size:14px; }
- .decisions .who .name a { color:var(--ink); }
- .decisions .who .meta { font-size:12px; color:var(--muted); margin-top:3px; }
- .decisions .who .meta a { color:var(--muted); }
- .decisions .pill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;
-                    text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap; }
- .pill.ok { background:#d1fae5; color:#065f46; }
- .pill.no { background:#fee2e2; color:#991b1b; }
- .pill.mut { background:#eef1f5; color:var(--muted); }
- .decisions .when { font-size:12px; color:var(--muted); white-space:nowrap; }
- .decisions .empty { padding:28px; text-align:center; color:var(--muted); font-size:14px; }
- .decisions .artifacts { margin-top:6px; display:flex; flex-wrap:wrap; gap:12px;
-                         font-size:12px; }
-
- /* Quick actions column */
- .actions-col .row { display:flex; align-items:center; gap:12px; padding:12px 20px;
-                     border-bottom:1px solid var(--line); color:inherit; text-decoration:none; }
- .actions-col .row:last-child { border-bottom:0; }
- .actions-col .row:hover { background:#f7f9fc; }
- .actions-col .ico { width:36px; height:36px; border-radius:8px; background:var(--primary-light);
-                     color:var(--primary); display:flex; align-items:center;
-                     justify-content:center; font-size:16px; flex-shrink:0; }
- .actions-col .ico.yellow { background:#fff4de; color:#b45309; }
- .actions-col .ico.red { background:#fde7eb; color:var(--danger); }
- .actions-col .ico.dark { background:#e7e9ee; color:var(--ink); }
- .actions-col .t { flex:1; min-width:0; }
- .actions-col .t h3 { font-size:14px; font-weight:600; margin:0; }
- .actions-col .t p { font-size:12px; color:var(--muted); margin:2px 0 0; }
- .actions-col .arrow { color:var(--muted); font-size:14px; }
-
- @media (max-width:900px) {
-   .office-shell { grid-template-columns:1fr; }
-   .office-nav { position:static; height:auto; border-right:0;
-                 border-bottom:1px solid var(--line);
-                 padding:16px 20px; display:flex; gap:4px; overflow-x:auto; }
-   .office-nav .head, .office-nav .divider, .office-nav .foot { display:none; }
-   .office-nav a { white-space:nowrap; padding:8px 12px; }
-   .office-main { padding:24px 20px; }
-   .kpi-grid { grid-template-columns:repeat(2, 1fr); }
- }
- @media (max-width:560px) { .kpi-grid { grid-template-columns:1fr; } }
+ table.datatable { width:100%; border-collapse:collapse; background:#fff;
+                   border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ table.datatable thead th { background:#f8fafc; text-align:left; padding:10px 14px;
+                            font-size:12px; text-transform:uppercase; letter-spacing:.05em;
+                            color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
+ table.datatable tbody td { padding:12px 14px; border-top:1px solid var(--line);
+                            font-size:14px; vertical-align:top; }
+ table.datatable tbody tr:first-child td { border-top:0; }
+ table.datatable tbody tr:hover { background:#f8fafc; }
+ table.datatable .applicant { font-weight:600; }
+ table.datatable .applicant a { color:var(--ink); }
+ table.datatable .applicant a:hover { color:var(--primary); }
+ table.datatable .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ table.datatable .meta a { color:var(--muted); }
+ table.datatable .artifacts { margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; font-size:12px; }
+ table.datatable .when { white-space:nowrap; color:var(--muted); font-size:12px; }
+ table.datatable .empty { text-align:center; padding:28px; color:var(--muted); font-size:14px; }
 {% endblock %}
 
-{% block content %}
-<div class="office-shell" style="margin:-40px -24px 0;">
-  <aside class="office-nav">
-    <div class="head">
-      <div class="title">Editorial Office</div>
-      <div class="sub">{% if office %}Full access{% else %}{{ managed.count }} journal{{ managed.count|pluralize }}{% endif %}</div>
-    </div>
-    <a href="/office/" class="active"><span class="ico">▦</span> Dashboard</a>
-    <a href="/office/queue/"><span class="ico">✉</span> Application queue</a>
-    <a href="/office/approved/"><span class="ico">✓</span> Approved members</a>
-    <a href="/office/journals/"><span class="ico">◫</span> Journals</a>
-    <a href="/office/editors/"><span class="ico">✎</span> Editorial staff</a>
-    <a href="/office/boards/"><span class="ico">⚑</span> Boards</a>
-    <a href="/office/suggestions/"><span class="ico">◉</span> Suggestions</a>
-    <a href="/office/flow/"><span class="ico">⟳</span> Workflow</a>
-    <div class="divider"></div>
-    <a href="/directory/"><span class="ico">⌕</span> Member directory</a>
-    {% if request.user.is_superuser or request.user.is_staff %}
-      <a href="/admin/"><span class="ico">⚙</span> Django admin</a>
-    {% endif %}
-    <div class="divider"></div>
-    <div class="foot">APID · Consortium e-Learning Network Pvt Ltd</div>
-  </aside>
+{% block office_main %}
+<header class="office-head">
+  <h1>Welcome back{% if request.user.full_name %}, {{ request.user.full_name|cut:" " }}{% endif %}.</h1>
+  <p>
+    {% if office %}You can view, decide and audit applications across every journal.
+    {% else %}You manage applications for {{ managed.count }} journal{{ managed.count|pluralize }}.{% endif %}
+  </p>
+</header>
 
-  <section class="office-main">
-
-    <header class="office-head">
-      <h1>Welcome back{% if request.user.full_name %}, {{ request.user.full_name|cut:" " }}{% endif %}.</h1>
-      <p>
-        {% if office %}You can view, decide and audit applications across every journal.
-        {% else %}You manage applications for {{ managed.count }} journal{{ managed.count|pluralize }}.{% endif %}
-      </p>
-    </header>
-
-    <!-- KPIs -->
-    <div class="kpi-grid">
-      <a class="kpi" href="/office/queue/">
-        <div>
-          <div class="label">Pending</div>
-          <div class="n">{{ mng_pending }}</div>
-          <div class="sub">New &amp; under review</div>
-        </div>
-        <div class="icon">✉</div>
-      </a>
-      <a class="kpi" href="/office/queue/?state=accepted">
-        <div>
-          <div class="label">Accepted</div>
-          <div class="n">{{ mng_counts.accepted|default:0 }}</div>
-          <div class="sub">Live from queue</div>
-        </div>
-        <div class="icon ok">✓</div>
-      </a>
-      <a class="kpi" href="/office/boards/">
-        <div>
-          <div class="label">Journals</div>
-          <div class="n">{{ board_count }}</div>
-          <div class="sub">{{ active_appointments }} active appointment{{ active_appointments|pluralize }}</div>
-        </div>
-        <div class="icon yellow">◫</div>
-      </a>
-      <a class="kpi" href="/office/queue/?state=declined">
-        <div>
-          <div class="label">Declined</div>
-          <div class="n">{{ mng_counts.declined|default:0 }}</div>
-          <div class="sub">Live from queue</div>
-        </div>
-        <div class="icon no">✕</div>
-      </a>
-    </div>
-
-    <!-- Recent decisions + quick actions -->
-    <div class="panel-grid">
-      <div class="panel decisions">
-        <div class="ph">
-          <h2>Recent decisions</h2>
-          <span><a href="/office/approved/" style="margin-right:14px">All approved →</a><a href="/office/queue/">Open queue →</a></span>
-        </div>
-        {% if recent %}
-          {% for app in recent %}
-          <div class="row">
-            <div class="avatar">{{ app.member.display_name|default:app.member.username|slice:":1"|upper }}</div>
-            <div class="who">
-              <div class="name"><a href="{% url 'profile' app.member.apid %}">{{ app.member.display_name|default:app.member.username }}</a></div>
-              <div class="meta">
-                <a href="{% url 'application' app.id %}">Application #{{ app.id }}</a>
-                {% if app.applying_for %} · {{ app.applying_for }}{% endif %}
-                {% if app.subject %} · {{ app.subject }}{% endif %}
-              </div>
-              {% if app.decision == "accepted" and app.accepted_appts %}
-                <div class="artifacts">
-                  {% for a in app.accepted_appts %}
-                    <span><strong>{{ a.journal.abbreviation|default:a.journal.title|truncatechars:28 }}:</strong>
-                      <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
-                      · <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
-                    </span>
-                  {% endfor %}
-                </div>
-              {% endif %}
-            </div>
-            {% if app.decision == "accepted" %}<span class="pill ok">Accepted</span>
-            {% elif app.decision == "declined" %}<span class="pill no">Declined</span>
-            {% else %}<span class="pill mut">{{ app.decision }}</span>{% endif %}
-            <div class="when">{{ app.decided_at|date:"d M Y" }}</div>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="empty">No decisions yet.</div>
-        {% endif %}
-      </div>
-
-      <div class="panel actions-col">
-        <div class="ph"><h2>Quick actions</h2></div>
-        <a class="row" href="/office/queue/">
-          <div class="ico">📋</div>
-          <div class="t"><h3>Application queue</h3><p>Pending decisions</p></div>
-          <div class="arrow">→</div>
-        </a>
-        <a class="row" href="/office/journals/">
-          <div class="ico yellow">◫</div>
-          <div class="t"><h3>Journals</h3><p>Filter &amp; bulk-assign CEs</p></div>
-          <div class="arrow">→</div>
-        </a>
-        <a class="row" href="/office/editors/">
-          <div class="ico">✎</div>
-          <div class="t"><h3>Editorial staff</h3><p>Roster &amp; profiles</p></div>
-          <div class="arrow">→</div>
-        </a>
-        <a class="row" href="/office/suggestions/">
-          <div class="ico red">💡</div>
-          <div class="t"><h3>Suggestions</h3><p>Reviewer invites</p></div>
-          <div class="arrow">→</div>
-        </a>
-      </div>
-    </div>
-
-    {% if total_members is not None %}
-    <h2 style="font-size:16px;font-weight:700;margin:28px 0 12px">Registry snapshot</h2>
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div>
-          <div class="label">Total members</div>
-          <div class="n">{{ total_members }}</div>
-          <div class="sub">All APID accounts</div>
-        </div>
-        <div class="icon">◉</div>
-      </div>
-      <div class="kpi">
-        <div>
-          <div class="label">Serving on boards</div>
-          <div class="n">{{ with_appointment }}</div>
-          <div class="sub">Members with active appointments</div>
-        </div>
-        <div class="icon yellow">⚑</div>
-      </div>
-      <div class="kpi">
-        <div>
-          <div class="label">Legacy decided</div>
-          <div class="n">{{ local_decided }}</div>
-          <div class="sub">Imported from the WP forms</div>
-        </div>
-        <div class="icon ok">✓</div>
-      </div>
-      <div class="kpi">
-        <div>
-          <div class="label">Local pending</div>
-          <div class="n">{{ local_pending }}</div>
-          <div class="sub">Applications in APID DB</div>
-        </div>
-        <div class="icon no">✉</div>
-      </div>
-    </div>
-    {% endif %}
-
-  </section>
+<div class="kpi-grid" style="margin-bottom:20px">
+  <a class="kpi" href="/office/queue/">
+    <div><div class="label">Pending</div><div class="n">{{ mng_pending }}</div><div class="sub">New &amp; under review</div></div>
+    <div class="icon">✉</div>
+  </a>
+  <a class="kpi" href="/office/queue/?state=accepted">
+    <div><div class="label">Accepted</div><div class="n">{{ mng_counts.accepted|default:0 }}</div><div class="sub">Live from queue</div></div>
+    <div class="icon ok">✓</div>
+  </a>
+  <a class="kpi" href="/office/boards/">
+    <div><div class="label">Journals</div><div class="n">{{ board_count }}</div><div class="sub">{{ active_appointments }} active appointment{{ active_appointments|pluralize }}</div></div>
+    <div class="icon yellow">◫</div>
+  </a>
+  <a class="kpi" href="/office/queue/?state=declined">
+    <div><div class="label">Declined</div><div class="n">{{ mng_counts.declined|default:0 }}</div><div class="sub">Live from queue</div></div>
+    <div class="icon no">✕</div>
+  </a>
 </div>
+
+<h2 style="font-size:16px;font-weight:700;margin:24px 0 0">Recent decisions</h2>
+<p style="margin:4px 0 0;font-size:13px"><a href="/office/approved/">All approved →</a> &nbsp;<a href="/office/queue/">Open queue →</a></p>
+
+<form class="filter-bar" method="get">
+  <div>
+    <label for="d-journal">Journal</label>
+    <select id="d-journal" name="journal">
+      <option value="">All journals</option>
+      {% for j in journal_choices %}
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }} · {{ j.app_count }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="d-from">Decided from</label>
+    <input id="d-from" type="date" name="date_from" value="{{ date_from }}">
+  </div>
+  <div>
+    <label for="d-to">to</label>
+    <input id="d-to" type="date" name="date_to" value="{{ date_to }}">
+  </div>
+  <button type="submit">Apply</button>
+  {% if selected_journal or date_from or date_to %}
+    <a class="clear" href="?">Clear</a>
+  {% endif %}
+</form>
+
+<p class="count-note">Showing <strong>{{ recent|length }}</strong> of <strong>{{ decisions_total }}</strong> matching decision{{ decisions_total|pluralize }}.</p>
+
+<table class="datatable">
+  <thead>
+    <tr>
+      <th>Applicant</th>
+      <th>Application</th>
+      <th>Journals &amp; artifacts</th>
+      <th>Decision</th>
+      <th>Decided</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in recent %}
+      <tr>
+        <td class="applicant">
+          <a href="{% url 'profile' app.member.apid %}">{{ app.member.display_name|default:app.member.username }}</a>
+          <div class="meta">APID {{ app.member.apid }}</div>
+        </td>
+        <td>
+          <a href="{% url 'application' app.id %}">#{{ app.id }}</a>
+          {% if app.applying_for %}<div class="meta">{{ app.applying_for }}</div>{% endif %}
+          {% if app.subject %}<div class="meta">{{ app.subject|truncatechars:70 }}</div>{% endif %}
+        </td>
+        <td>
+          {% if app.decision == "accepted" and app.accepted_appts %}
+            {% for a in app.accepted_appts %}
+              <div class="artifacts">
+                <strong>{{ a.journal.abbreviation|default:a.journal.title|truncatechars:28 }}:</strong>
+                <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
+                <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
+              </div>
+            {% endfor %}
+          {% else %}
+            <span class="muted small">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if app.decision == "accepted" %}<span class="pill ok">Accepted</span>
+          {% elif app.decision == "declined" %}<span class="pill no">Declined</span>
+          {% else %}<span class="pill mut">{{ app.decision }}</span>{% endif %}
+        </td>
+        <td class="when">{{ app.decided_at|date:"d M Y" }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="empty">No decisions match these filters.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% if total_members is not None %}
+<h2 style="font-size:16px;font-weight:700;margin:28px 0 12px">Registry snapshot</h2>
+<div class="kpi-grid">
+  <div class="kpi">
+    <div><div class="label">Total members</div><div class="n">{{ total_members }}</div><div class="sub">All APID accounts</div></div>
+    <div class="icon">◉</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Serving on boards</div><div class="n">{{ with_appointment }}</div><div class="sub">Members with active appointments</div></div>
+    <div class="icon yellow">⚑</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Legacy decided</div><div class="n">{{ local_decided }}</div><div class="sub">Imported from the WP forms</div></div>
+    <div class="icon ok">✓</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Local pending</div><div class="n">{{ local_pending }}</div><div class="sub">Applications in APID DB</div></div>
+    <div class="icon no">✉</div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}

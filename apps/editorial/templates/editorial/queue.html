@@ -1,106 +1,144 @@
-{% extends "profiles/base.html" %}
-{% block title %}Editorial queue · APID{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Editorial queue{% endblock %}
+{% block office_style %}
  .queue-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
  .queue-head h1 { margin:0; }
  .queue-head .suggest { font-size:14px; padding:8px 16px; background:var(--accent); color:#000; border-radius:8px; text-decoration:none; font-weight:600; white-space:nowrap; }
  .queue-head .suggest:hover { background:var(--accent-dark); color:#000; }
- .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 16px; }
+ .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 14px; }
  .tab { padding:7px 13px; border:1px solid var(--line); border-radius:999px;
         background:#fff; font-size:14px; color:var(--ink); text-decoration:none; }
  .tab.on { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
- .app { border-top:1px solid var(--line); padding:14px 0; display:flex; gap:14px;
-        align-items:flex-start; }
- .app:first-of-type { border-top:0; }
- .who { flex:1; min-width:0; }
- .who a { color:var(--ink); }
- .who strong { font-size:15px; }
- .who .email { color:var(--muted); font-size:13px; margin-top:2px; }
- .who .meta { color:var(--muted); font-size:13px; margin-top:4px; }
- .when { color:var(--muted); font-size:13px; white-space:nowrap; text-align:right; }
+
+ .filter-bar { background:#fff; border:1px solid var(--line); border-radius:10px;
+               padding:12px 16px; margin-bottom:12px;
+               display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+ .filter-bar label { display:block; font-size:11px; color:var(--muted);
+                     text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; font-weight:600; }
+ .filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--line);
+                                         border-radius:6px; font-size:13px; font-family:inherit; }
+ .filter-bar select, .filter-bar input[type=text] { min-width:200px; }
+ .filter-bar button { padding:8px 16px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+ .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
+ .filter-bar .clear:hover { color:var(--primary); }
+
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note strong { color:var(--ink); }
+
+ table.datatable { width:100%; border-collapse:collapse; background:#fff;
+                   border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ table.datatable thead th { background:#f8fafc; text-align:left; padding:10px 14px;
+                            font-size:12px; text-transform:uppercase; letter-spacing:.05em;
+                            color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
+ table.datatable tbody td { padding:12px 14px; border-top:1px solid var(--line);
+                            font-size:14px; vertical-align:top; }
+ table.datatable tbody tr:first-child td { border-top:0; }
+ table.datatable tbody tr:hover { background:#f8fafc; }
+ table.datatable .who-name { font-weight:600; }
+ table.datatable .who-name a { color:var(--ink); }
+ table.datatable .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ table.datatable .when { white-space:nowrap; color:var(--muted); font-size:12px; }
+ table.datatable .empty { text-align:center; padding:28px; color:var(--muted); font-size:14px; }
  .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px;
           font-weight:600; letter-spacing:.02em; margin-left:6px; vertical-align:middle; }
  .badge.warn { background:#fef3c7; color:#78350f; }
  .badge.info { background:#dbeafe; color:#1e3a8a; }
  .badge.good { background:#d1fae5; color:#064e3b; }
  .badge.muted { background:#e5e7eb; color:#374151; }
- .search { display:flex; gap:8px; margin-bottom:18px; }
- .search input { flex:1; }
- .search button { white-space:nowrap; }
+ .decide-btn { display:inline-block; padding:6px 12px; background:var(--accent); color:#000;
+               border-radius:6px; font-size:12px; font-weight:600; text-decoration:none; }
+ .decide-btn:hover { background:var(--accent-dark); color:#000; }
  .note { background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px;
          border-radius:8px; margin-bottom:16px; color:#1e3a8a; font-size:14px; }
- .decide-btn { display:inline-block; padding:7px 14px; background:var(--accent); color:#000;
-               border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; margin-top:4px; }
- .decide-btn:hover { background:var(--accent-dark); color:#000; }
- @media (max-width:600px) {
-   .queue-head { flex-direction:column; align-items:flex-start; }
-   .queue-head .suggest { width:100%; text-align:center; }
-   .app { flex-direction:column; gap:8px; }
-   .when { text-align:left; }
- }
 {% endblock %}
-{% block content %}
+{% block office_section %}queue{% endblock %}
+{% block office_main %}
 {% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
-<div class="card">
-  <div class="queue-head">
-    <h1>Editorial queue</h1>
-    <a href="{% url 'editorial-suggestions' %}" class="suggest">Suggest candidates →</a>
-  </div>
 
-  <div class="tabs">
-    {% for value, label, count in tabs %}
-      <a class="tab {% if state == value %}on{% endif %}"
-         href="?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}">
-         {{ label }} <span class="{% if state != value %}muted{% endif %}">{{ count }}</span>
-      </a>
-    {% endfor %}
-    <a class="tab {% if state == 'all' %}on{% endif %}"
-       href="?state=all{% if query %}&q={{ query|urlencode }}{% endif %}">All</a>
-  </div>
-
-  <form class="search" method="get">
-    <input type="hidden" name="state" value="{{ state }}">
-    <input type="text" name="q" value="{{ query }}"
-           placeholder="Name, email, subject or role">
-    <button type="submit">Search</button>
-  </form>
-
-  <p class="muted small">Showing {{ shown }} of {{ total }}.</p>
-
-  {% for r in rows %}
-    <div class="app">
-      <div class="who">
-        <a href="{% url 'application' r.pk %}">
-          <strong>{{ r.applicant|default:"(no name)" }}</strong>
-        </a>
-        <span class="badge {{ r.state_tone }}">{{ r.state_label }}</span>
-        {% if r.email %}<div class="email">{{ r.email }}</div>{% endif %}
-        {% if r.role or r.subject %}
-        <div class="meta">
-          {% if r.role %}{{ r.role }}{% endif %}
-          {% if r.role and r.subject %} · {% endif %}
-          {% if r.subject %}{{ r.subject|truncatechars:160 }}{% endif %}
-        </div>
-        {% endif %}
-        {% if r.journals %}
-        <div class="meta">📚 {{ r.journals|truncatechars:220 }}</div>
-        {% endif %}
-      </div>
-      <div class="when">
-        {% if r.applied_at %}<div>applied {{ r.applied_at|date:"Y-m-d" }}</div>{% endif %}
-        {% if r.cv_url %}
-          <div style="margin:4px 0"><a href="{{ r.cv_url }}" target="_blank" rel="noopener"
-             style="font-size:13px">📎 CV</a></div>
-        {% endif %}
-        {% if r.decided_at %}
-          <div class="muted small">decided {{ r.decided_at|date:"Y-m-d" }}</div>
-        {% else %}
-          <a href="{% url 'application' r.pk %}" class="decide-btn">Decide →</a>
-        {% endif %}
-      </div>
-    </div>
-  {% empty %}
-    <p class="muted">Nothing here.</p>
-  {% endfor %}
+<div class="queue-head">
+  <h1>Editorial queue</h1>
+  <a href="{% url 'editorial-suggestions' %}" class="suggest">Suggest candidates →</a>
 </div>
+
+<div class="tabs">
+  {% for value, label, count in tabs %}
+    <a class="tab {% if state == value %}on{% endif %}"
+       href="?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+       {{ label }} <span class="muted">· {{ count }}</span>
+    </a>
+  {% endfor %}
+  <a class="tab {% if state == 'all' %}on{% endif %}"
+     href="?state=all{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">All</a>
+</div>
+
+<form class="filter-bar" method="get">
+  <input type="hidden" name="state" value="{{ state }}">
+  <div>
+    <label for="q-journal">Journal</label>
+    <select id="q-journal" name="journal">
+      <option value="">All journals</option>
+      {% for j in journal_choices %}
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }} · {{ j.app_count }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div>
+    <label for="q-from">Applied from</label>
+    <input id="q-from" type="date" name="date_from" value="{{ date_from }}">
+  </div>
+  <div>
+    <label for="q-to">to</label>
+    <input id="q-to" type="date" name="date_to" value="{{ date_to }}">
+  </div>
+  <div>
+    <label for="q-text">Search</label>
+    <input id="q-text" type="text" name="q" value="{{ query }}" placeholder="Name, email, subject or role">
+  </div>
+  <button type="submit">Apply</button>
+  {% if selected_journal or date_from or date_to or query %}
+    <a class="clear" href="?state={{ state }}">Clear</a>
+  {% endif %}
+</form>
+
+<p class="count-note">Showing <strong>{{ shown }}</strong> of <strong>{{ total }}</strong> application{{ total|pluralize }} in this view.</p>
+
+<table class="datatable">
+  <thead>
+    <tr>
+      <th>Applicant</th>
+      <th>Role &amp; subject</th>
+      <th>Journals</th>
+      <th>Status</th>
+      <th>Applied</th>
+      <th>CV</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>
+          <div class="who-name"><a href="{% url 'application' r.pk %}">{{ r.applicant|default:"(no name)" }}</a></div>
+          {% if r.email %}<div class="meta">{{ r.email }}</div>{% endif %}
+        </td>
+        <td>
+          {% if r.role %}{{ r.role }}{% endif %}
+          {% if r.subject %}<div class="meta">{{ r.subject|truncatechars:120 }}</div>{% endif %}
+        </td>
+        <td>
+          {% if r.journals %}<div class="meta">{{ r.journals|truncatechars:200 }}</div>{% else %}<span class="muted small">—</span>{% endif %}
+        </td>
+        <td><span class="badge {{ r.state_tone }}">{{ r.state_label }}</span></td>
+        <td class="when">{% if r.applied_at %}{{ r.applied_at|date:"Y-m-d" }}{% endif %}
+          {% if r.decided_at %}<div class="meta">decided {{ r.decided_at|date:"Y-m-d" }}</div>{% endif %}
+        </td>
+        <td>{% if r.cv_url %}<a href="{{ r.cv_url }}" target="_blank" rel="noopener" style="font-size:12px">📎 CV</a>{% else %}<span class="muted small">—</span>{% endif %}</td>
+        <td>{% if not r.decided_at %}<a href="{% url 'application' r.pk %}" class="decide-btn">Decide →</a>{% endif %}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

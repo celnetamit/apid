@@ -1,47 +1,131 @@
-{% extends "profiles/base.html" %}
-{% block title %}{{ journal.title }} — Manage · APID Office{% endblock %}
-{% block style %}
- .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
- .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; letter-spacing:-0.02em; }
- .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
- .page-head .crumb a { color:#dbeafe; }
- .page-head p { color:#cbd5e1; margin:0; font-size:14px; }
- .mgr-list { background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:20px; overflow:hidden; }
- .mgr-list .row { display:flex; align-items:center; gap:14px; padding:14px 20px; border-top:1px solid var(--line); }
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ journal.title }}{% endblock %}
+{% block office_section %}journals{% endblock %}
+{% block office_navsub %}Journal profile{% endblock %}
+{% block office_style %}
+ .profile-head { background:#fff; border:1px solid var(--line); border-radius:12px;
+                 padding:24px 26px; margin-bottom:20px; display:flex; gap:20px;
+                 align-items:center; }
+ .profile-head .cover { width:72px; height:72px; border-radius:12px;
+                        background:var(--primary-light); color:var(--primary-dark);
+                        display:flex; align-items:center; justify-content:center;
+                        font-size:22px; font-weight:800; flex-shrink:0;
+                        overflow:hidden; }
+ .profile-head .cover img { width:100%; height:100%; object-fit:cover; }
+ .profile-head .meta { flex:1; min-width:0; }
+ .profile-head .meta h1 { font-size:22px; margin:0; letter-spacing:-0.02em; }
+ .profile-head .meta .m { color:var(--muted); font-size:13px; margin-top:6px; }
+ .profile-head .meta .m span + span::before { content:" · "; color:var(--line); }
+
+ .mgr-list { background:#fff; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+ .mgr-list .row { display:flex; align-items:center; gap:14px; padding:14px 20px;
+                  border-top:1px solid var(--line); }
  .mgr-list .row:first-child { border-top:0; }
- .mgr-list .av { width:40px; height:40px; border-radius:50%; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; overflow:hidden; }
+ .mgr-list .av { width:40px; height:40px; border-radius:50%;
+                 background:var(--primary-light); color:var(--primary);
+                 display:flex; align-items:center; justify-content:center;
+                 font-weight:700; font-size:14px; overflow:hidden; flex-shrink:0; }
  .mgr-list .av img { width:100%; height:100%; object-fit:cover; }
  .mgr-list .who { flex:1; min-width:0; }
- .mgr-list .name { font-weight:600; font-size:14px; }
- .mgr-list .meta { color:var(--muted); font-size:12px; }
- .mgr-list .role-pill { font-size:11px; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; padding:3px 10px; border-radius:999px; }
- .role-pill.ce { background:#fff4de; color:#8a5a06; }
+ .mgr-list .name { font-weight:600; font-size:14px; color:var(--ink); }
+ .mgr-list .name a { color:var(--ink); }
+ .mgr-list .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ .mgr-list .role-pill { font-size:11px; text-transform:uppercase;
+                        letter-spacing:0.04em; font-weight:700;
+                        padding:3px 10px; border-radius:999px; }
+ .role-pill.ce  { background:#fff4de; color:#8a5a06; }
  .role-pill.eic { background:#e3f2fd; color:#1565c0; }
+ .role-pill.mem { background:#eef1f5; color:var(--muted); }
  .mgr-list form { display:inline; }
- .mgr-list .remove { background:transparent; color:var(--danger); border:1px solid #fecaca; padding:5px 10px; font-size:12px; border-radius:6px; cursor:pointer; }
+ .mgr-list .remove { background:transparent; color:var(--danger);
+                     border:1px solid #fecaca; padding:5px 10px; font-size:12px;
+                     border-radius:6px; cursor:pointer; }
  .mgr-list .remove:hover { background:#fee2e2; }
- .empty-msg { padding:20px; text-align:center; color:var(--muted); font-size:14px; }
- .assign-box { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px 20px; }
- .assign-box h3 { font-size:14px; margin:0 0 10px; font-weight:700; }
+ .empty-msg { padding:18px; text-align:center; color:var(--muted); font-size:14px; }
+
+ .assign-box { padding:16px 22px; }
  .assign-box label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
- .assign-box .row { display:flex; gap:10px; }
- .assign-box input { flex:1; }
+ .assign-box .inrow { display:flex; gap:10px; }
+ .assign-box input[type=email] { flex:1; padding:9px 12px; border:1px solid var(--line);
+                                 border-radius:6px; font-size:14px; }
+ .assign-box button { padding:9px 18px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; cursor:pointer; }
+ .section-h { display:flex; align-items:baseline; justify-content:space-between;
+              margin:24px 0 10px; }
+ .section-h h2 { font-size:15px; font-weight:700; margin:0; }
+ .section-h .meta { font-size:12px; color:var(--muted); }
+
+ .recent-list { background:#fff; border:1px solid var(--line); border-radius:12px; }
+ .recent-list .row { display:flex; align-items:flex-start; gap:12px; padding:12px 20px;
+                     border-top:1px solid var(--line); }
+ .recent-list .row:first-child { border-top:0; }
+ .recent-list .av { width:32px; height:32px; border-radius:50%;
+                    background:var(--primary-light); color:var(--primary);
+                    display:flex; align-items:center; justify-content:center;
+                    font-weight:700; font-size:12px; flex-shrink:0; }
+ .recent-list .who { flex:1; min-width:0; }
+ .recent-list .name { font-size:14px; font-weight:600; }
+ .recent-list .when { font-size:12px; color:var(--muted); white-space:nowrap; }
 {% endblock %}
 
-{% block content %}
-<div class="page-head">
-  <div class="wrap">
-    <div class="crumb"><a href="/office/">Office</a> · <a href="/office/journals/">Journals</a> · Manage</div>
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · <a href="/office/journals/">Journals</a> · {{ journal.title|truncatechars:40 }}</div>
+</header>
+
+<div class="profile-head">
+  <div class="cover">
+    {% if journal.image_url %}<img src="{{ journal.image_url }}" alt="">
+    {% else %}{{ journal.abbreviation|default:journal.title|slice:":2"|upper }}{% endif %}
+  </div>
+  <div class="meta">
     <h1>{{ journal.title }}</h1>
-    <p>{% if journal.subject %}{{ journal.subject }} · {% endif %}Commissioning Editors decide applications for this journal. Journal managers (EIC) too.</p>
+    <div class="m">
+      {% if journal.abbreviation %}<span><strong>{{ journal.abbreviation }}</strong></span>{% endif %}
+      {% if journal.subject %}<span>{{ journal.subject }}</span>{% endif %}
+      {% if journal.publisher %}<span>{{ journal.publisher }}</span>{% endif %}
+      {% if journal.status %}<span>{{ journal.status }}</span>{% endif %}
+      {% if journal.commissioning_editor %}
+        <span>CE: <strong>{{ journal.commissioning_editor.name }}</strong></span>
+      {% endif %}
+    </div>
   </div>
 </div>
-<div class="wrap">
 
-{% if messages %}{% for m in messages %}<div class="card" style="margin-bottom:14px;padding:12px 18px">{{ m }}</div>{% endfor %}{% endif %}
+<div class="kpi-grid" style="margin-bottom:20px">
+  <div class="kpi">
+    <div><div class="label">Pending</div><div class="n">{{ app_counts.pending|default:0 }}</div><div class="sub">Applications awaiting decision</div></div>
+    <div class="icon">✉</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Accepted</div><div class="n">{{ app_counts.accepted|default:0 }}</div><div class="sub">On this journal</div></div>
+    <div class="icon ok">✓</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Declined</div><div class="n">{{ app_counts.declined|default:0 }}</div><div class="sub">On this journal</div></div>
+    <div class="icon no">✕</div>
+  </div>
+  <div class="kpi">
+    <div><div class="label">Board size</div><div class="n">{{ board_total_people }}</div><div class="sub">Distinct members on the board</div></div>
+    <div class="icon yellow">⚑</div>
+  </div>
+</div>
 
-<h2 style="font-size:16px;margin:0 0 10px">Commissioning Editors ({{ commissioning_editors|length }})</h2>
+<div class="section-h">
+  <h2>Commissioning editor{{ commissioning_editors|length|pluralize }}</h2>
+  <span class="meta">Signs certificates &amp; letters for this journal</span>
+</div>
 <div class="mgr-list">
+  {% if journal.commissioning_editor %}
+    <div class="row">
+      <div class="av">{{ journal.commissioning_editor.name|slice:":1"|upper }}</div>
+      <div class="who">
+        <div class="name">{{ journal.commissioning_editor.name }}</div>
+        <div class="meta">{{ journal.commissioning_editor.email }}{% if journal.commissioning_editor.phone %} · {{ journal.commissioning_editor.phone }}{% endif %} · {{ journal.commissioning_editor.designation }}</div>
+      </div>
+      <span class="role-pill ce">Signatory</span>
+    </div>
+  {% endif %}
   {% for a in commissioning_editors %}
     <div class="row">
       {% if a.member.profile.picture %}
@@ -50,53 +134,96 @@
         <div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>
       {% endif %}
       <div class="who">
-        <div class="name">{{ a.member.display_name }}</div>
+        <div class="name"><a href="{% url 'profile' a.member.apid %}">{{ a.member.display_name }}</a></div>
         <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}{% if a.started_on %} · Since {{ a.started_on|date:"M Y" }}{% endif %}</div>
       </div>
       <span class="role-pill ce">Commissioning Editor</span>
+      {% if user_is_office %}
       <form method="post" onsubmit="return confirm('Remove this CE from the journal?')">
         {% csrf_token %}
         <input type="hidden" name="action" value="remove">
         <input type="hidden" name="appointment_id" value="{{ a.id }}">
         <button type="submit" class="remove">Remove</button>
       </form>
-    </div>
-  {% empty %}
-    <div class="empty-msg">No commissioning editor assigned yet. Add one below.</div>
-  {% endfor %}
-</div>
-
-<h2 style="font-size:16px;margin:28px 0 10px">Journal managers ({{ managers|length }})</h2>
-<div class="mgr-list">
-  {% for a in managers %}
-    <div class="row">
-      {% if a.member.profile.picture %}
-        <div class="av"><img src="/media/{{ a.member.profile.picture }}" alt=""></div>
-      {% else %}
-        <div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>
       {% endif %}
-      <div class="who">
-        <div class="name">{{ a.member.display_name }}</div>
-        <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}{% if a.started_on %} · Since {{ a.started_on|date:"M Y" }}{% endif %}</div>
-      </div>
-      <span class="role-pill eic">{{ a.role }}</span>
     </div>
-  {% empty %}
-    <div class="empty-msg">No active Editor-in-Chief for this journal.</div>
   {% endfor %}
+  {% if not journal.commissioning_editor and not commissioning_editors %}
+    <div class="empty-msg">No commissioning editor assigned yet.</div>
+  {% endif %}
 </div>
 
-<h2 style="font-size:16px;margin:28px 0 10px">Assign a Commissioning Editor</h2>
-<form method="post" class="assign-box">
+{% if managers %}
+<div class="section-h"><h2>Editors-in-Chief &amp; Associates</h2><span class="meta">{{ managers|length }}</span></div>
+<div class="mgr-list">
+  {% for row in managers %}
+    <div class="row">
+      {% if row.member.profile.picture %}
+        <div class="av"><img src="/media/{{ row.member.profile.picture }}" alt=""></div>
+      {% else %}<div class="av">{{ row.member.display_name|slice:":1"|upper }}</div>{% endif %}
+      <div class="who">
+        <div class="name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name }}</a></div>
+        <div class="meta">APID {{ row.member.apid }} · {{ row.member.email }}{% if row.started_on %} · Since {{ row.started_on|date:"M Y" }}{% endif %}</div>
+      </div>
+      <span class="role-pill eic">{{ row.role_summary }}</span>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if board %}
+<div class="section-h">
+  <h2>Editorial board</h2>
+  <span class="meta">{{ board_total_people }} people · {{ board_total_rows }} role{{ board_total_rows|pluralize }}</span>
+</div>
+<div class="mgr-list">
+  {% for row in board %}
+    <div class="row">
+      {% if row.member.profile.picture %}
+        <div class="av"><img src="/media/{{ row.member.profile.picture }}" alt=""></div>
+      {% else %}<div class="av">{{ row.member.display_name|slice:":1"|upper }}</div>{% endif %}
+      <div class="who">
+        <div class="name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name }}</a></div>
+        <div class="meta">APID {{ row.member.apid }} · {{ row.member.email }}</div>
+      </div>
+      <span class="role-pill mem">{{ row.role_summary }}</span>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if recent %}
+<div class="section-h"><h2>Recent decisions</h2><span class="meta">Last 10</span></div>
+<div class="recent-list">
+  {% for app in recent %}
+    <div class="row">
+      <div class="av">{{ app.member.display_name|slice:":1"|upper }}</div>
+      <div class="who">
+        <div class="name"><a href="{% url 'application' app.id %}">{{ app.member.display_name|default:app.member.username }}</a></div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px">
+          Application #{{ app.id }}{% if app.applying_for %} · {{ app.applying_for }}{% endif %}
+        </div>
+      </div>
+      {% if app.decision == "accepted" %}<span class="pill ok">Accepted</span>
+      {% elif app.decision == "declined" %}<span class="pill no">Declined</span>
+      {% else %}<span class="pill mut">{{ app.decision }}</span>{% endif %}
+      <div class="when">{{ app.decided_at|date:"d M Y" }}</div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if user_is_office %}
+<div class="section-h"><h2>Appoint a Commissioning Editor</h2><span class="meta">Member-based appointment (not the signatory FK)</span></div>
+<form method="post" class="panel assign-box">
   {% csrf_token %}
   <input type="hidden" name="action" value="assign">
   <label for="email">Member's email</label>
-  <div class="row">
+  <div class="inrow">
     <input id="email" type="email" name="email" placeholder="editor@institution.edu" required>
     <button type="submit">Assign →</button>
   </div>
-  <div style="font-size:12px;color:var(--muted);margin-top:6px">The member must already have an APID account. They'll see this journal's queue immediately after assignment.</div>
+  <div style="font-size:12px;color:var(--muted);margin-top:6px">The member must already have an APID account. The journal's signatory on certificates comes from <a href="{% url 'editors-index' %}">Editorial staff</a>, not from this appointment.</div>
 </form>
-
-</div>
+{% endif %}
 {% endblock %}

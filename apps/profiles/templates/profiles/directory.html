@@ -15,9 +15,9 @@
   <h1 style="font-size:22px;margin:0 0 6px">Search the registry</h1>
   <p class="muted small" style="margin-top:0">
     {{ total }} members · {{ with_profiles }} with a completed profile.
-    Search by name, affiliation, department, expertise or ORCID.</p>
+    Search by APID, name, email, affiliation, department, expertise or ORCID.</p>
   <form class="search" method="get">
-    <input name="q" value="{{ query }}" placeholder="e.g. polymer chemistry, or an ORCID" autofocus>
+    <input name="q" value="{{ query }}" placeholder="APID 1234, name, email, affiliation, or ORCID" autofocus>
     <button>Search</button>
   </form>
   {% if query %}

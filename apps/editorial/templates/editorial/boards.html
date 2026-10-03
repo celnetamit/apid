@@ -1,12 +1,13 @@
-{% extends "profiles/base.html" %}
-{% block title %}Boards · APID{% endblock %}
-{% block style %}{% include "members/_style.html" %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Boards{% endblock %}
+{% block office_style %}{% include "members/_style.html" %}
  .j { display:flex; gap:12px; border-top:1px solid var(--line); padding:11px 0; }
  .j:first-child { border-top:0; }
  .n { width:44px; text-align:right; font-variant-numeric:tabular-nums; }
  .none { color:#a3352b; font-weight:600; }
 {% endblock %}
-{% block content %}
+{% block office_section %}boards{% endblock %}
+{% block office_main %}
 <div class="card">
   <h1>Editorial boards</h1>
   <p class="muted small">{{ total }} journals · <strong class="none">{{ empty }}</strong>

@@ -44,6 +44,9 @@ def profile(request, apid: str):
                      .filter(ended_on__isnull=True))),
         apid=apid)
     full_view = request.user.is_authenticated
+    # wisp 2026-10-03: share widget belongs to the profile owner, not the public.
+    # Anyone else wanting the link can copy it from the browser bar.
+    is_owner = full_view and request.user.pk == member.pk
     counts = SocialCounts.objects.filter(member=member).first() if full_view else None
     i_follow = bool(
         full_view and request.user != member
@@ -116,6 +119,7 @@ def profile(request, apid: str):
         "i_follow": i_follow,
         "posts": member.posts.filter(hidden=False)[:5] if full_view else None,
         "full_view": full_view,
+        "is_owner": is_owner,
         "can_invite": can_invite,
         "can_impersonate": can_impersonate,
         "invite_journals": invite_journals,
@@ -162,12 +166,18 @@ def home(request):
 
 
 def directory(request):
-    """Search the registry: by name, affiliation, expertise or ORCID."""
+    """Search the registry: APID, name, email, affiliation, expertise or ORCID."""
     query = (request.GET.get("q") or "").strip()
     results = Profile.objects.none()
     if query:
+        # APID is minted as the WordPress user id (digits), so a plain number
+        # should land on a single member rather than fuzzy-matching 13,500 ORCIDs
+        # that happen to contain those digits. iexact on apid, icontains on the
+        # text fields.
         results = (Profile.objects.select_related("member")
-                   .filter(Q(member__full_name__icontains=query)
+                   .filter(Q(member__apid__iexact=query)
+                           | Q(member__full_name__icontains=query)
+                           | Q(member__email__icontains=query)
                            | Q(affiliation__icontains=query)
                            | Q(expertise__icontains=query)
                            | Q(areas_of_interest__icontains=query)
