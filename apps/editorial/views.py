@@ -54,21 +54,30 @@ STATUS_LABELS = {
 
 @queue_or_manager
 def queue(request):
-    """The legacy queue, now read from mng.
+    """Local-DB application queue.
 
-    Decisions are made in manuscript-ngine — this page is a viewer. Every row
-    links to the mng decide screen; the queue itself is a signed API call.
+    Office sees every application; a journal manager (EIC/Associate EIC, or the
+    commissioning editor set on the journal via EditorialStaff) sees only
+    applications naming at least one of their journals.
     """
     from apps.editorial.mng_client import queue as mng_queue, queue_summary
     state = request.GET.get("state", "new")
     query = (request.GET.get("q") or "").strip()
 
+    user_is_office = is_office(request.user)
+    journal_ids = None
+    if not user_is_office:
+        journal_ids = list(manager_journals(request.user).values_list("id", flat=True))
+        if not journal_ids:
+            journal_ids = [-1]  # match nothing
+
     try:
-        counts = queue_summary()
+        counts = queue_summary(journal_ids=journal_ids)
         page_data = mng_queue(
             status=state if state and state != "all" else None,
             q=query or None,
             page=1, page_size=100,
+            journal_ids=journal_ids,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
@@ -240,6 +249,13 @@ def application(request, pk):
     # wisp 2026-10-02 pm: which choices this user can decide on.
     user_is_office = is_office(request.user)
     managed_ids = set(manager_journals(request.user).values_list("id", flat=True))
+    # wisp 2026-10-03: non-office users may only view the page when at least one
+    # choice is on a journal they manage. Otherwise the detail page would leak
+    # application contents (identity, CV link, affiliations) across journals.
+    if not user_is_office:
+        choice_journal_ids = {c.get("journal_id") for c in choices if c.get("journal_id")}
+        if not (choice_journal_ids & managed_ids):
+            raise PermissionDenied("This application is not for one of your journals.")
     for c in choices:
         label, tone = STATUS_LABELS.get(c["status"], (c["status_display"], "muted"))
         c["state_label"], c["state_tone"] = label, tone
@@ -724,15 +740,20 @@ def dashboard(request):
     if not (office or managed.exists()):
         raise PermissionDenied
 
-    # Local pending (from imported data, usually 0 now that mng is live)
+    managed_ids = (None if office
+                   else list(managed.values_list("id", flat=True)) or [-1])
+
+    # Local applications — all for office, scoped to managed journals otherwise.
     local_apps = Application.objects.all()
+    if managed_ids is not None:
+        local_apps = local_apps.filter(journals__journal_id__in=managed_ids).distinct()
     local_pending = local_apps.filter(decision="").count()
     local_decided = local_apps.exclude(decision="").count()
 
     # Live counts from mng
     try:
         from apps.editorial.mng_client import queue_summary
-        mng_counts = queue_summary() or {}
+        mng_counts = queue_summary(journal_ids=managed_ids) or {}
     except Exception:
         mng_counts = {}
     mng_pending = mng_counts.get("new", 0) + mng_counts.get("under_review", 0)
