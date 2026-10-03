@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}{{ app.name|default:"Application" }} — application · APID{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ app.name|default:"Application" }} — application{% endblock %}
+{% block office_style %}
  .head { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
  .avatar { width:96px; height:96px; border-radius:8px; object-fit:cover;
            border:1px solid var(--line); background:#eef2f6; flex:none; }
@@ -48,7 +48,8 @@
    .choice-form .decide-actions button { flex:1; min-width:100px; }
  }
 {% endblock %}
-{% block content %}
+{% block office_section %}queue{% endblock %}
+{% block office_main %}
 {% if messages %}{% for m in messages %}<div class="note-banner">{{ m }}</div>{% endfor %}{% endif %}
 <div class="card">
   <div class="head">

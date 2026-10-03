@@ -1,7 +1,8 @@
-{% extends "profiles/base.html" %}
-{% block title %}{{ journal.title }} · APID{% endblock %}
-{% block style %}{% include "members/_style.html" %}{% endblock %}
-{% block content %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ journal.title }}{% endblock %}
+{% block office_style %}{% include "members/_style.html" %}{% endblock %}
+{% block office_section %}boards{% endblock %}
+{% block office_main %}
 <p class="small"><a href="{% url 'boards' %}">← All boards</a></p>
 <div class="card">
   <h1>{{ journal.title }}</h1>

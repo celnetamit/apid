@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}{{ journal.title }} — Manage · APID Office{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ journal.title }} — Manage{% endblock %}
+{% block office_style %}
  .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
  .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; letter-spacing:-0.02em; }
  .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
@@ -28,7 +28,8 @@
  .assign-box input { flex:1; }
 {% endblock %}
 
-{% block content %}
+{% block office_section %}journals{% endblock %}
+{% block office_main %}
 <div class="page-head">
   <div class="wrap">
     <div class="crumb"><a href="/office/">Office</a> · <a href="/office/journals/">Journals</a> · Manage</div>

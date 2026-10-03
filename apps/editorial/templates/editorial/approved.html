@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}Approved profiles · APID office{% endblock %}
-{% block style %}{% include "members/_style.html" %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Approved profiles{% endblock %}
+{% block office_style %}{% include "members/_style.html" %}
  .wrap-pad { padding: 24px; }
  .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px;
             margin: 10px 0 20px; flex-wrap:wrap; }
@@ -26,7 +26,8 @@
  .appt .dl { font-size:12px; }
  .appt .dl a { color:var(--primary); }
 {% endblock %}
-{% block content %}
+{% block office_section %}approved{% endblock %}
+{% block office_main %}
 <div class="wrap-pad">
   <h1 style="margin:0">Approved profiles</h1>
   <p class="muted small" style="margin:4px 0 0">Every member with an active editorial appointment.

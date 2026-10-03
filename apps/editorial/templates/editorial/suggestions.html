@@ -1,6 +1,6 @@
-{% extends "profiles/base.html" %}
-{% block title %}Suggested candidates · APID{% endblock %}
-{% block style %}
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Suggested candidates{% endblock %}
+{% block office_style %}
  .pickform { display:grid; grid-template-columns:1fr 200px 130px; gap:10px; margin-bottom:20px; }
  .pickform select, .pickform button { padding:8px; font-size:14px; }
  .cand { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px;
@@ -11,7 +11,8 @@
                text-decoration:none; font-weight:600; font-size:13px; display:inline-block;
                margin-top:6px; }
 {% endblock %}
-{% block content %}
+{% block office_section %}suggestions{% endblock %}
+{% block office_main %}
 {% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
 <div class="card">
   <h1>Suggested candidates</h1>

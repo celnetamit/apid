@@ -1,0 +1,159 @@
+{% extends "profiles/base.html" %}
+{% block title %}{% block office_title %}Editorial Office{% endblock %} — APID{% endblock %}
+{% block style %}
+ /* Office shell — sidebar + main content column. APID blue palette. */
+ main { padding:0 0 48px !important; }
+ .office-shell { display:grid; grid-template-columns:240px 1fr; gap:0;
+                 min-height:calc(100vh - 72px); background:#f7f9fc;
+                 margin:-40px -24px 0; }
+
+ .office-nav { background:#fff; border-right:1px solid var(--line);
+               padding:28px 16px; position:sticky; top:0; align-self:start;
+               height:calc(100vh - 72px); overflow-y:auto; }
+ .office-nav .head { padding:0 10px 12px; }
+ .office-nav .head .title { font-size:17px; font-weight:800; color:var(--ink);
+                            letter-spacing:-0.01em; }
+ .office-nav .head .sub { font-size:11px; color:var(--muted); text-transform:uppercase;
+                          letter-spacing:0.08em; margin-top:3px; font-weight:600; }
+ .office-nav a { display:flex; align-items:center; gap:12px; padding:10px 12px;
+                 color:var(--ink); font-size:14px; font-weight:500;
+                 border-radius:8px; margin:2px 0; }
+ .office-nav a:hover { background:var(--primary-light); color:var(--primary-dark); }
+ .office-nav a.active { background:var(--primary); color:#fff; }
+ .office-nav a.active:hover { background:var(--primary-dark); color:#fff; }
+ .office-nav .ico { width:20px; height:20px; display:inline-flex; align-items:center;
+                    justify-content:center; font-size:14px; opacity:0.9; }
+ .office-nav .divider { height:1px; background:var(--line); margin:14px 10px; }
+ .office-nav .foot { padding:0 10px; color:var(--muted); font-size:12px; }
+
+ .office-main { padding:32px 40px; min-width:0; }
+
+ /* Reusable page header pattern */
+ .office-head { margin-bottom:24px; }
+ .office-head h1 { font-size:26px; font-weight:800; margin:0 0 6px;
+                   letter-spacing:-0.02em; color:var(--ink); }
+ .office-head .crumb { font-size:12px; color:var(--muted); text-transform:uppercase;
+                       letter-spacing:0.08em; font-weight:600; margin-bottom:10px; }
+ .office-head .crumb a { color:var(--muted); }
+ .office-head .crumb a:hover { color:var(--primary); }
+ .office-head p { margin:0; color:var(--muted); font-size:14px; }
+
+ /* Panels */
+ .panel { background:#fff; border:1px solid var(--line); border-radius:12px; }
+ .panel .ph { padding:16px 22px; border-bottom:1px solid var(--line);
+              display:flex; justify-content:space-between; align-items:center;
+              gap:14px; flex-wrap:wrap; }
+ .panel .ph h2 { font-size:16px; font-weight:700; margin:0; }
+ .panel .pb { padding:16px 22px; }
+
+ /* Shared pills */
+ .pill { font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;
+         text-transform:uppercase; letter-spacing:0.04em; white-space:nowrap;
+         display:inline-block; }
+ .pill.ok  { background:#d1fae5; color:#065f46; }
+ .pill.no  { background:#fee2e2; color:#991b1b; }
+ .pill.mut { background:#eef1f5; color:var(--muted); }
+ .pill.warn{ background:#fef3c7; color:#92400e; }
+ .pill.info{ background:var(--primary-light); color:var(--primary-dark); }
+
+ /* KPI tiles */
+ .kpi-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; }
+ .kpi { background:#fff; border:1px solid var(--line); border-radius:12px; padding:20px;
+        display:flex; justify-content:space-between; align-items:flex-start; gap:14px;
+        text-decoration:none; color:inherit; transition:all .15s; }
+ .kpi:hover { border-color:var(--primary); box-shadow:0 10px 24px rgba(15,27,45,0.06);
+              transform:translateY(-1px); color:inherit; }
+ .kpi .label { font-size:12px; color:var(--muted); text-transform:uppercase;
+               letter-spacing:0.06em; font-weight:600; margin-bottom:10px; }
+ .kpi .n { font-size:28px; font-weight:800; letter-spacing:-0.02em; color:var(--ink); line-height:1; }
+ .kpi .sub { font-size:12px; color:var(--muted); margin-top:6px; }
+ .kpi .icon { width:40px; height:40px; border-radius:10px; display:flex;
+              align-items:center; justify-content:center; font-size:18px;
+              background:var(--primary-light); color:var(--primary); flex-shrink:0; }
+ .kpi .icon.ok { background:#d1fae5; color:#047857; }
+ .kpi .icon.no { background:#fee2e2; color:#b91c1c; }
+ .kpi .icon.yellow { background:#fff4de; color:#b45309; }
+
+ /* Toolbar on list pages */
+ .office-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap;
+                   background:#fff; border:1px solid var(--line); border-radius:12px;
+                   padding:12px 16px; margin-bottom:16px; }
+ .office-toolbar input[type=search] { flex:1; min-width:200px; padding:8px 12px;
+                                      border:1px solid var(--line); border-radius:8px;
+                                      font-size:14px; }
+ .office-toolbar select { padding:8px 10px; border:1px solid var(--line);
+                          border-radius:8px; font-size:13px; background:#fff; }
+ .office-toolbar .btn-primary { padding:8px 16px; background:var(--primary);
+                                color:#fff; border-radius:8px; font-weight:600;
+                                font-size:14px; border:0; cursor:pointer; }
+ .office-toolbar .btn-primary:hover { background:var(--primary-dark); color:#fff; }
+ .office-toolbar .btn-outline { padding:8px 16px; background:#fff;
+                                border:1px solid var(--line); border-radius:8px;
+                                font-weight:600; font-size:14px; color:var(--ink); }
+ .office-toolbar .btn-outline:hover { border-color:var(--primary); color:var(--primary); }
+ .office-toolbar .spacer { flex:1; }
+
+ /* Row-based list */
+ .office-list .row { display:grid; gap:16px; padding:14px 22px;
+                     border-top:1px solid var(--line); align-items:center; }
+ .office-list .row:first-child { border-top:0; }
+ .office-list .row.head { background:#f9fafc; font-size:11px; text-transform:uppercase;
+                          letter-spacing:0.06em; color:var(--muted); font-weight:600;
+                          padding:12px 22px; }
+ .office-list .row .act a { color:var(--primary); font-size:13px; font-weight:500; }
+
+ /* Messages */
+ .flash { padding:12px 16px; border-radius:8px; background:#eef2ff;
+          border:1px solid #c7d2fe; color:#312e81; font-size:14px; margin-bottom:12px; }
+
+ {% block office_style %}{% endblock %}
+
+ @media (max-width:900px) {
+   .office-shell { grid-template-columns:1fr; }
+   .office-nav { position:static; height:auto; border-right:0;
+                 border-bottom:1px solid var(--line);
+                 padding:16px 20px; display:flex; gap:4px; overflow-x:auto; }
+   .office-nav .head, .office-nav .divider, .office-nav .foot { display:none; }
+   .office-nav a { white-space:nowrap; padding:8px 12px; }
+   .office-main { padding:24px 20px; }
+   .kpi-grid { grid-template-columns:repeat(2, 1fr); }
+ }
+ @media (max-width:560px) { .kpi-grid { grid-template-columns:1fr; } }
+{% endblock %}
+
+{% block content %}
+<div class="office-shell">
+  <aside class="office-nav">
+    <div class="head">
+      <div class="title">Editorial Office</div>
+      <div class="sub">{% block office_navsub %}APID{% endblock %}</div>
+    </div>
+    {% with section=self.office_section|default:"" %}
+    <a href="/office/"           {% if section == "dashboard" %}class="active"{% endif %}><span class="ico">▦</span> Dashboard</a>
+    <a href="/office/queue/"     {% if section == "queue"     %}class="active"{% endif %}><span class="ico">✉</span> Application queue</a>
+    <a href="/office/approved/"  {% if section == "approved"  %}class="active"{% endif %}><span class="ico">✓</span> Approved members</a>
+    <a href="/office/journals/"  {% if section == "journals"  %}class="active"{% endif %}><span class="ico">◫</span> Journals</a>
+    <a href="/office/editors/"   {% if section == "editors"   %}class="active"{% endif %}><span class="ico">✎</span> Editorial staff</a>
+    <a href="/office/boards/"    {% if section == "boards"    %}class="active"{% endif %}><span class="ico">⚑</span> Boards</a>
+    <a href="/office/suggestions/" {% if section == "suggestions" %}class="active"{% endif %}><span class="ico">◉</span> Suggestions</a>
+    <a href="/office/flow/"      {% if section == "flow"      %}class="active"{% endif %}><span class="ico">⟳</span> Workflow</a>
+    <div class="divider"></div>
+    <a href="/directory/"><span class="ico">⌕</span> Member directory</a>
+    {% if request.user.is_superuser or request.user.is_staff %}
+      <a href="/admin/"><span class="ico">⚙</span> Django admin</a>
+    {% endif %}
+    {% endwith %}
+    <div class="divider"></div>
+    <div class="foot">APID · Consortium e-Learning Network Pvt Ltd</div>
+  </aside>
+
+  <section class="office-main">
+    {% if messages %}
+      {% for m in messages %}<div class="flash">{{ m }}</div>{% endfor %}
+    {% endif %}
+    {% block office_main %}{% endblock %}
+  </section>
+</div>
+{% endblock %}
+
+{% block office_section %}{% endblock %}
