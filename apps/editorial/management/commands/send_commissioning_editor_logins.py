@@ -21,10 +21,11 @@ from __future__ import annotations
 import secrets
 import string
 
+from django.conf import settings
+from django.core.mail import EmailMessage
 from django.core.management.base import BaseCommand
 
 from apps.editorial.models import EditorialStaff
-from apps.identity import mail as mail_module
 from apps.identity.models import Member
 
 # Omit visually ambiguous characters so phone-screen reads are unambiguous.
@@ -141,19 +142,23 @@ class Command(BaseCommand):
                 member.save()
                 updated += 1
 
-            ok = mail_module._send(
-                LOGIN_SUBJECT,
-                LOGIN_BODY.format(name=staff.name, email=email,
-                                  password=password, site=site.rstrip("/")),
-                email,
+            body = LOGIN_BODY.format(name=staff.name, email=email,
+                                     password=password,
+                                     site=site.rstrip("/"))
+            message = EmailMessage(
+                subject=LOGIN_SUBJECT, body=body, to=[email],
+                from_email=settings.DEFAULT_FROM_EMAIL,
             )
-            if ok:
+            try:
+                n = message.send(fail_silently=False)
+            except Exception as exc:
+                n = 0
+                self.stdout.write(f"  FAIL  {email} → {staff.name} ({exc})")
+            if n:
                 sent += 1
                 self.stdout.write(f"  SENT  {email} → {staff.name}")
-            else:
+            elif n == 0:
                 failed += 1
-                self.stdout.write(
-                    f"  FAIL  {email} → {staff.name} (not sent, check outbox / SES)")
 
         self.stdout.write(
             f"\nDone. created={created} updated={updated} sent={sent} failed={failed}")
