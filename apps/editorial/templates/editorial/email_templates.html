@@ -3,10 +3,10 @@
 {% block office_section %}email_templates{% endblock %}
 {% block office_navsub %}Outgoing mail{% endblock %}
 {% block office_style %}
- .t-row { grid-template-columns:1fr 2fr 90px 110px; }
- .t-cat { font-size:12px; color:var(--muted); margin-top:2px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
- .t-subj { font-size:13px; color:var(--muted); margin-top:2px;
-           display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+ .cat { font-size:12px; color:var(--muted); margin-top:2px;
+        font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+ .body-prev { color:var(--muted); font-size:12px; margin-top:2px;
+              display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
 {% endblock %}
 
 {% block office_main %}
@@ -16,32 +16,34 @@
   <p>Edit the subject and body for each category. Variables in <code>{curly}</code> braces are filled in at send time.</p>
 </header>
 
-<div class="panel office-list">
-  <div class="row head t-row">
-    <div>Category</div>
-    <div>Subject</div>
-    <div style="text-align:center">Status</div>
-    <div class="act">&nbsp;</div>
-  </div>
-  {% for t in templates %}
-    <div class="row t-row">
-      <div>
-        <div style="font-weight:600;color:var(--ink)">{{ t.name }}</div>
-        <div class="t-cat">{{ t.category }}</div>
-      </div>
-      <div>
-        <div style="color:var(--ink)">{{ t.subject }}</div>
-        <div class="t-subj">{{ t.body|slice:":120" }}</div>
-      </div>
-      <div style="text-align:center">
-        {% if t.enabled %}<span class="pill ok">On</span>{% else %}<span class="pill mut">Off</span>{% endif %}
-      </div>
-      <div class="act"><a href="{% url 'email-template-edit' t.pk %}">Edit →</a></div>
-    </div>
-  {% empty %}
-    <div class="row"><div style="grid-column:1/-1;color:var(--muted);padding:28px;text-align:center">
-      No templates yet. Open any template to seed the defaults.
-    </div></div>
-  {% endfor %}
-</div>
+<table class="datatable">
+  <thead>
+    <tr>
+      <th style="width:30%">Category</th>
+      <th>Subject</th>
+      <th style="width:90px;text-align:center">Status</th>
+      <th style="width:110px;text-align:right"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for t in templates %}
+      <tr>
+        <td>
+          <strong>{{ t.name }}</strong>
+          <div class="cat">{{ t.category }}</div>
+        </td>
+        <td>
+          {{ t.subject }}
+          <div class="body-prev">{{ t.body|slice:":120" }}</div>
+        </td>
+        <td style="text-align:center">
+          {% if t.enabled %}<span class="pill ok">On</span>{% else %}<span class="pill mut">Off</span>{% endif %}
+        </td>
+        <td style="text-align:right"><a href="{% url 'email-template-edit' t.pk %}">Edit →</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="empty">No templates yet. Open any template to seed the defaults.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

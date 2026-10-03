@@ -130,6 +130,41 @@
  .flash { padding:12px 16px; border-radius:8px; background:#eef2ff;
           border:1px solid #c7d2fe; color:#312e81; font-size:14px; margin-bottom:12px; }
 
+ /* Data tables — shared across office pages. */
+ table.datatable { width:100%; border-collapse:collapse; background:#fff;
+                   border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ table.datatable thead th { background:#f8fafc; text-align:left; padding:10px 14px;
+                            font-size:12px; text-transform:uppercase; letter-spacing:.05em;
+                            color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
+ table.datatable tbody td { padding:12px 14px; border-top:1px solid var(--line);
+                            font-size:14px; vertical-align:top; }
+ table.datatable tbody tr:first-child td { border-top:0; }
+ table.datatable tbody tr:hover { background:#f8fafc; }
+ table.datatable .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ table.datatable .when { white-space:nowrap; color:var(--muted); font-size:12px; }
+ table.datatable .empty { text-align:center; padding:28px; color:var(--muted); font-size:14px; }
+ table.datatable .num { text-align:right; font-variant-numeric:tabular-nums; }
+ .filter-bar { background:#fff; border:1px solid var(--line); border-radius:10px;
+               padding:12px 16px; margin:0 0 12px;
+               display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+ .filter-bar label { display:block; font-size:11px; color:var(--muted);
+                     text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; font-weight:600; }
+ .filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--line);
+                                         border-radius:6px; font-size:13px; font-family:inherit; }
+ .filter-bar button { padding:8px 16px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px;
+               display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+ .count-note strong { color:var(--ink); }
+ .count-note .export-btn { color:var(--primary); text-decoration:none; font-weight:600; font-size:13px; }
+ .count-note .export-btn:hover { text-decoration:underline; }
+ .pager { display:flex; align-items:center; justify-content:center; gap:10px;
+          margin:20px 0 0; font-size:14px; }
+ .pager a { padding:7px 13px; border:1px solid var(--line); border-radius:6px;
+            color:var(--ink); text-decoration:none; }
+ .pager a:hover { border-color:var(--primary); color:var(--primary); }
+ .pager .mut { color:var(--muted); font-size:13px; }
+
  {% block office_style %}{% endblock %}
 
  @media (max-width:900px) {
