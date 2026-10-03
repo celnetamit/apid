@@ -1,20 +1,45 @@
 {% extends "profiles/base.html" %}
 {% block title %}{% block office_title %}Editorial Office{% endblock %} — APID{% endblock %}
 {% block style %}
- /* Office shell — sidebar + main content column. APID blue palette. */
- main { padding:0 0 48px !important; }
+ /* Office shell — sidebar + main content column. APID blue palette.
+    The site-wide top header is hidden on office pages so the sidebar is the
+    primary nav — matches the RevuMate-style single-column navigation. */
+ header.site { display:none !important; }
+ main { padding:0 0 0 !important; }
+ body { background:#f7f9fc; }
  .office-shell { display:grid; grid-template-columns:240px 1fr; gap:0;
-                 min-height:calc(100vh - 72px); background:#f7f9fc;
-                 margin:-40px -24px 0; }
+                 min-height:100vh; background:#f7f9fc; }
 
  .office-nav { background:#fff; border-right:1px solid var(--line);
-               padding:28px 16px; position:sticky; top:0; align-self:start;
-               height:calc(100vh - 72px); overflow-y:auto; }
- .office-nav .head { padding:0 10px 12px; }
- .office-nav .head .title { font-size:17px; font-weight:800; color:var(--ink);
-                            letter-spacing:-0.01em; }
- .office-nav .head .sub { font-size:11px; color:var(--muted); text-transform:uppercase;
-                          letter-spacing:0.08em; margin-top:3px; font-weight:600; }
+               padding:22px 16px 16px; position:sticky; top:0; align-self:start;
+               height:100vh; overflow-y:auto;
+               display:flex; flex-direction:column; }
+ .office-nav .brand { display:flex; align-items:center; gap:10px;
+                      padding:0 10px 20px; margin-bottom:4px;
+                      border-bottom:1px solid var(--line); }
+ .office-nav .brand img { height:34px; width:auto; }
+ .office-nav .brand .t { font-size:16px; font-weight:800; color:var(--ink);
+                         letter-spacing:-0.01em; }
+ .office-nav .head { padding:14px 10px 10px; }
+ .office-nav .head .title { font-size:13px; font-weight:700; color:var(--muted);
+                            letter-spacing:0.08em; text-transform:uppercase; }
+ .office-nav .head .sub { font-size:11px; color:var(--muted);
+                          margin-top:3px; font-weight:500; }
+ .office-nav .nav-items { flex:1; }
+ .office-nav .user-card { margin-top:auto; padding:14px 12px; border-top:1px solid var(--line);
+                          display:flex; align-items:center; gap:10px; }
+ .office-nav .user-card .ava { width:34px; height:34px; border-radius:50%;
+                               background:var(--primary); color:#fff;
+                               display:flex; align-items:center; justify-content:center;
+                               font-weight:700; font-size:13px; flex-shrink:0; }
+ .office-nav .user-card .uinfo { flex:1; min-width:0; overflow:hidden; }
+ .office-nav .user-card .uinfo .name { font-size:13px; font-weight:600; color:var(--ink);
+                                       text-overflow:ellipsis; white-space:nowrap; overflow:hidden; }
+ .office-nav .user-card .uinfo .role { font-size:11px; color:var(--muted); }
+ .office-nav .user-card form { margin:0; }
+ .office-nav .user-card button { background:none; border:0; padding:0; cursor:pointer;
+                                 color:var(--danger); font-size:16px; }
+ .office-nav .user-card button:hover { color:#8a1930; }
  .office-nav a { display:flex; align-items:center; gap:12px; padding:10px 12px;
                  color:var(--ink); font-size:14px; font-weight:500;
                  border-radius:8px; margin:2px 0; }
@@ -24,7 +49,6 @@
  .office-nav .ico { width:20px; height:20px; display:inline-flex; align-items:center;
                     justify-content:center; font-size:14px; opacity:0.9; }
  .office-nav .divider { height:1px; background:var(--line); margin:14px 10px; }
- .office-nav .foot { padding:0 10px; color:var(--muted); font-size:12px; }
 
  .office-main { padding:32px 40px; min-width:0; }
 
@@ -112,22 +136,32 @@
    .office-shell { grid-template-columns:1fr; }
    .office-nav { position:static; height:auto; border-right:0;
                  border-bottom:1px solid var(--line);
-                 padding:16px 20px; display:flex; gap:4px; overflow-x:auto; }
-   .office-nav .head, .office-nav .divider, .office-nav .foot { display:none; }
-   .office-nav a { white-space:nowrap; padding:8px 12px; }
-   .office-main { padding:24px 20px; }
+                 padding:12px 16px; display:flex; flex-direction:row; gap:4px;
+                 overflow-x:auto; align-items:center; }
+   .office-nav .brand { padding:0 10px 0 0; margin:0; border-bottom:0; border-right:1px solid var(--line); }
+   .office-nav .brand img { height:28px; }
+   .office-nav .head, .office-nav .divider, .office-nav .user-card { display:none; }
+   .office-nav .nav-items { display:flex; flex-direction:row; gap:4px; }
+   .office-nav a { white-space:nowrap; padding:8px 12px; margin:0; }
+   .office-main { padding:20px 16px; }
    .kpi-grid { grid-template-columns:repeat(2, 1fr); }
  }
  @media (max-width:560px) { .kpi-grid { grid-template-columns:1fr; } }
 {% endblock %}
 
 {% block content %}
+{% load static %}
 <div class="office-shell">
   <aside class="office-nav">
+    <a href="/" class="brand">
+      <img src="{% static 'apid/apid-logo.png' %}" alt="APID">
+      <span class="t">APID</span>
+    </a>
     <div class="head">
       <div class="title">Editorial Office</div>
-      <div class="sub">{% block office_navsub %}APID{% endblock %}</div>
+      <div class="sub">{% block office_navsub %}{% endblock %}</div>
     </div>
+    <div class="nav-items">
     {% with section=self.office_section|default:"" %}
     <a href="/office/"           {% if section == "dashboard" %}class="active"{% endif %}><span class="ico">▦</span> Dashboard</a>
     <a href="/office/queue/"     {% if section == "queue"     %}class="active"{% endif %}><span class="ico">✉</span> Application queue</a>
@@ -139,12 +173,23 @@
     <a href="/office/flow/"      {% if section == "flow"      %}class="active"{% endif %}><span class="ico">⟳</span> Workflow</a>
     <div class="divider"></div>
     <a href="/directory/"><span class="ico">⌕</span> Member directory</a>
+    <a href="/me/"><span class="ico">◎</span> My profile</a>
     {% if request.user.is_superuser or request.user.is_staff %}
       <a href="/admin/"><span class="ico">⚙</span> Django admin</a>
     {% endif %}
     {% endwith %}
-    <div class="divider"></div>
-    <div class="foot">APID · Consortium e-Learning Network Pvt Ltd</div>
+    </div>
+    <div class="user-card">
+      <div class="ava">{{ request.user.full_name|default:request.user.username|slice:":1"|upper }}</div>
+      <div class="uinfo">
+        <div class="name">{{ request.user.full_name|default:request.user.username }}</div>
+        <div class="role">{% if request.user.is_superuser %}Superuser{% elif request.user.is_staff %}Staff{% else %}Editor{% endif %}</div>
+      </div>
+      <form method="post" action="/accounts/logout/" title="Sign out">
+        {% csrf_token %}
+        <button type="submit" aria-label="Sign out">⏻</button>
+      </form>
+    </div>
   </aside>
 
   <section class="office-main">
