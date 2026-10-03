@@ -87,7 +87,13 @@
       <div class="field"><label>Phone <span class="req">*</span></label>
         <input type="text" name="phone" value="{{ known.phone }}" required></div>
       <div class="field"><label>Country <span class="req">*</span></label>
-        <input type="text" name="country" value="{{ known.country_full }}" placeholder="e.g. India" required></div>
+        <select name="country" required>
+          <option value="">— select country —</option>
+          {% for c in countries %}
+            <option value="{{ c }}" {% if known.country_full == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="field"><label>Years of experience <span class="req">*</span></label>
         <input type="number" min="0" max="80" step="1" name="years_of_experience" value="{{ known.years_of_experience|default:'' }}" required></div>
       <div class="field"><label>Affiliation <span class="req">*</span></label>

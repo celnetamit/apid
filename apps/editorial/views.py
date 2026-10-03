@@ -721,6 +721,7 @@ def apply(request):
         "journals": journals,
         "roles": apply_bridge.ROLES,
         "subjects": subjects,
+        "countries": apply_bridge.COUNTRIES,
     })
 
 
