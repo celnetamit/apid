@@ -1,52 +1,99 @@
 {% extends "profiles/base.html" %}
 {% block title %}Apply to an editorial board · APID{% endblock %}
 {% block style %}{% include "members/_style.html" %}
- .known { background:#f4f8fd; border:1px solid #d6e4f5; border-radius:8px; padding:14px 16px;
-          font-size:14px; margin-bottom:18px; }
+ .known { background:#f4f8fd; border:1px solid #d6e4f5; border-radius:10px;
+          padding:14px 16px; font-size:14px; margin-bottom:18px; }
  .known dt { display:inline; font-weight:600; }
  .known dd { display:inline; margin:0 14px 0 4px; }
- .pick { max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:8px;
-         padding:10px 12px; }
- .pick label { font-weight:400; font-size:14px; display:flex; gap:8px; align-items:center;
-               margin:6px 0; }
- .pick input[type=checkbox] { width:auto; }
- .pick select { width:auto; font-size:13px; padding:3px 6px; }
+
+ .err-stack { margin:0 0 18px; padding:14px 16px; border-radius:10px;
+              background:#fef2f2; border:1px solid #fecaca; color:#991b1b;
+              font-size:14px; }
+ .err-stack strong { display:block; margin-bottom:6px; color:#7f1d1d; }
+ .err-stack ul { margin:0; padding-left:22px; }
+ .err-stack li { margin:2px 0; }
+
+ .photo-row { display:flex; gap:14px; align-items:center; margin-bottom:16px; }
+ .photo-row .ph { width:72px; height:72px; border-radius:50%; background:#e3f2fd;
+                  color:var(--primary-dark); display:flex; align-items:center;
+                  justify-content:center; font-weight:700; font-size:22px;
+                  overflow:hidden; flex-shrink:0; }
+ .photo-row .ph img { width:100%; height:100%; object-fit:cover; }
+ .photo-row .ph-info { flex:1; min-width:0; }
+ .photo-row .ph-info .lbl { font-weight:600; font-size:14px; display:block; }
+ .photo-row .ph-info .help { color:var(--muted); font-size:12px; margin-top:3px; }
+ .photo-row input[type=file] { font-size:13px; }
+
+ .req { color:var(--danger); font-weight:600; }
+
+ .picker { border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ .picker .controls { display:flex; gap:10px; padding:10px 12px;
+                     background:#f9fafc; border-bottom:1px solid var(--line);
+                     flex-wrap:wrap; align-items:center; }
+ .picker .controls input[type=search] { flex:1; min-width:200px; padding:7px 10px;
+                                        border:1px solid var(--line); border-radius:6px;
+                                        font-size:13px; }
+ .picker .controls select { padding:7px 10px; border:1px solid var(--line);
+                            border-radius:6px; font-size:13px; background:#fff; }
+ .picker .controls .counter { font-size:12px; color:var(--muted); margin-left:auto; }
+ .picker-list { max-height:360px; overflow:auto; padding:6px 12px; }
+ .picker-list .row { display:flex; align-items:center; gap:10px; padding:8px 0;
+                     border-bottom:1px solid #f1f3f6; font-size:14px; }
+ .picker-list .row:last-child { border-bottom:0; }
+ .picker-list .row.hidden { display:none; }
+ .picker-list input[type=checkbox] { width:auto; margin:0; }
+ .picker-list .j-title { flex:1; min-width:0; }
+ .picker-list .j-sub { color:var(--muted); font-size:12px; }
+ .picker-list select { font-size:12px; padding:4px 6px; width:auto; }
+
+ .picker .limit-note { padding:8px 12px; background:#fffbea; border-top:1px solid #fde68a;
+                       font-size:12px; color:#8a5a06; }
 {% endblock %}
 {% block content %}
-{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+{% if messages %}
+  <div class="err-stack">
+    <strong>Please fix the following and submit again:</strong>
+    <ul>{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>
+  </div>
+{% endif %}
 <div class="card">
   <h1>Apply to an editorial board</h1>
-  <p class="muted small" style="margin-top:-10px">The editorial office answers this on
-    the editorial platform. Most of it is already filled in from your profile.</p>
-
-  <div class="known">
-    <dl style="margin:0">
-      <dt>Name</dt><dd>{{ known.full_name }}</dd>
-      <dt>Email</dt><dd>{{ known.email }}</dd>
-      {% if known.orcid %}<dt>ORCID</dt><dd>{{ known.orcid }}</dd>{% endif %}
-      {% if known.highest_degree %}<dt>Degree</dt><dd>{{ known.highest_degree }}</dd>{% endif %}
-      <dt>Publications on record</dt><dd><strong>{{ known.publications }}</strong></dd>
-    </dl>
-    {% if known.prior_board_service %}
-      <div style="margin-top:8px"><strong>Already serving:</strong>
-        <div class="muted" style="white-space:pre-wrap">{{ known.prior_board_service }}</div></div>
-    {% endif %}
-    <div class="muted small" style="margin-top:8px">Wrong? <a href="{% url 'edit-profile' %}">Edit your profile</a> and it changes everywhere.</div>
-  </div>
+  <p class="muted small" style="margin-top:-10px">Most of this is pre-filled from your APID profile. Anything you correct here is also saved back to your profile.</p>
 
   <form method="post" enctype="multipart/form-data">{% csrf_token %}
+
+    <h2 style="font-size:15px;margin:20px 0 10px">About you</h2>
+
+    <div class="photo-row">
+      <div class="ph">
+        {% if known.picture %}<img src="/media/{{ known.picture }}" alt="">
+        {% else %}{{ known.full_name|slice:":1"|upper }}{% endif %}
+      </div>
+      <div class="ph-info">
+        <span class="lbl">Profile photo {% if not known.picture %}<span class="req">*</span>{% endif %}</span>
+        <input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,image/*"
+               {% if not known.picture %}required{% endif %}>
+        <div class="help">JPG, PNG or WEBP. Up to 4 MB.{% if known.picture %} Leave empty to keep the current one.{% endif %}</div>
+      </div>
+    </div>
+
     <div class="grid">
-      {% comment %}
-      Required on the editorial platform, so required here. A field the office
-      insists on and the screen does not ask for is not a validation rule — it is a
-      refusal the applicant cannot read and cannot fix. 8,740 of the 13,412 members
-      have no phone number stored, so for two in three this box starts empty and the
-      form would otherwise have posted straight into a 400.
-      {% endcomment %}
-      <div class="field"><label>Phone <span class="muted">(required)</span></label>
+      <div class="field"><label>Full name <span class="req">*</span></label>
+        <input type="text" name="full_name" value="{{ known.full_name }}" required></div>
+      <div class="field"><label>Email</label>
+        <input type="email" value="{{ known.email }}" readonly style="background:#f3f4f6">
+        <p class="muted small" style="margin:4px 0 0">You sign in with this address — contact support to change it.</p>
+      </div>
+      <div class="field"><label>Phone <span class="req">*</span></label>
         <input type="text" name="phone" value="{{ known.phone }}" required></div>
-      <div class="field"><label>Affiliation <span class="muted">(required)</span></label>
+      <div class="field"><label>Years of experience <span class="req">*</span></label>
+        <input type="number" min="0" max="80" step="1" name="years_of_experience" value="{{ known.years_of_experience|default:'' }}" required></div>
+      <div class="field"><label>Affiliation <span class="req">*</span></label>
         <input type="text" name="affiliation" value="{{ known.affiliation }}" required></div>
+      <div class="field"><label>Affiliation website <span class="req">*</span></label>
+        <input type="url" name="affiliation_url" value="{{ known.institution_url }}" placeholder="https://example.edu" required></div>
+      <div class="field"><label>Institutional profile link <span class="req">*</span></label>
+        <input type="url" name="institutional_profile_url" value="{{ known.institutional_profile_url }}" placeholder="https://example.edu/people/you" required></div>
       <div class="field"><label>Designation</label>
         <input type="text" name="designation" value="{{ known.designation }}"></div>
       <div class="field"><label>Department</label>
@@ -54,37 +101,92 @@
     </div>
 
     <div class="field">
-      <label>Which journals, and in what role</label>
-      <div class="pick">
-        {% for j in journals %}
-          <label>
-            <input type="checkbox" name="journal" value="{{ j.title }}|associate"
-                   onchange="this.value=this.value.split('|')[0]+'|'+this.nextElementSibling.nextElementSibling.value">
-            <span style="flex:1">{{ j.title }}</span>
-            <select onchange="this.parentElement.querySelector('input').value='{{ j.title }}|'+this.value">
-              {% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
-            </select>
-          </label>
-        {% endfor %}
-      </div>
-      <p class="muted small" style="margin:6px 0 0">Up to eleven.</p>
-    </div>
-
-    <div class="field">
-      <label>Why — in your own words</label>
-      <textarea name="statement" rows="6" placeholder="What you would bring to the board, and what you work on."></textarea>
-      <p class="muted small" style="margin:6px 0 0">The one part the registry cannot
-        answer for you.</p>
-    </div>
-
-    <div class="field">
-      <label>CV / Resume <span class="muted">(optional)</span></label>
-      <input type="file" name="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <label>CV / Resume <span class="req">*</span></label>
+      <input type="file" name="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required>
       <p class="muted small" style="margin:6px 0 0">PDF, DOC or DOCX. Up to 5 MB.</p>
+    </div>
+
+    <h2 style="font-size:15px;margin:28px 0 10px">Journals</h2>
+    <div class="field">
+      <label>Which journals, and in what role <span class="req">*</span></label>
+      <div class="picker">
+        <div class="controls">
+          <input type="search" id="j-search" placeholder="Search by title…" autocomplete="off">
+          <select id="j-subject">
+            <option value="">All domains / subjects</option>
+            {% for s in subjects %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          </select>
+          <span class="counter"><span id="j-shown">{{ journals|length }}</span> shown · <span id="j-picked">0</span> picked</span>
+        </div>
+        <div class="picker-list" id="j-list">
+          {% for j in journals %}
+            <div class="row" data-title="{{ j.title|lower }}" data-subject="{{ j.subject }}">
+              <input type="checkbox" name="journal" value="{{ j.title }}|associate"
+                     onchange="window.APPLY_update(this)">
+              <div class="j-title">
+                <div>{{ j.title }}</div>
+                {% if j.subject %}<div class="j-sub">{{ j.subject }}</div>{% endif %}
+              </div>
+              <select onchange="window.APPLY_setRole(this)">
+                {% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+              </select>
+            </div>
+          {% endfor %}
+        </div>
+        <div class="limit-note">Pick up to 11 journals.</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Why — in your own words <span class="req">*</span></label>
+      <textarea name="statement" rows="6" required minlength="40"
+                placeholder="What you would bring to the board, and what you work on. At least 40 characters."></textarea>
     </div>
 
     <button type="submit">Send to the editorial office</button>
     <a class="btn quiet" href="{% url 'dashboard' %}">Not now</a>
   </form>
 </div>
+
+<script>
+(function () {
+  var search = document.getElementById("j-search");
+  var subject = document.getElementById("j-subject");
+  var rows = document.querySelectorAll("#j-list .row");
+  var shown = document.getElementById("j-shown");
+  var picked = document.getElementById("j-picked");
+
+  function refilter() {
+    var q = (search.value || "").trim().toLowerCase();
+    var s = subject.value || "";
+    var n = 0;
+    rows.forEach(function (r) {
+      var titleOk = !q || r.dataset.title.indexOf(q) >= 0;
+      var subjOk = !s || r.dataset.subject === s;
+      var visible = titleOk && subjOk;
+      r.classList.toggle("hidden", !visible);
+      if (visible) n++;
+    });
+    shown.textContent = n;
+  }
+  function recount() {
+    var n = document.querySelectorAll("#j-list input[type=checkbox]:checked").length;
+    picked.textContent = n;
+  }
+  window.APPLY_update = function (cb) {
+    var row = cb.closest(".row");
+    var role = row.querySelector("select").value;
+    cb.value = cb.value.split("|")[0] + "|" + role;
+    recount();
+  };
+  window.APPLY_setRole = function (sel) {
+    var row = sel.closest(".row");
+    var cb = row.querySelector("input[type=checkbox]");
+    cb.value = cb.value.split("|")[0] + "|" + sel.value;
+  };
+  search.addEventListener("input", refilter);
+  subject.addEventListener("change", refilter);
+  recount();
+})();
+</script>
 {% endblock %}

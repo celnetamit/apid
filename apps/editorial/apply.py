@@ -81,7 +81,9 @@ def prefill(member) -> Dict[str, Any]:
         "highest_degree": getattr(profile, "academic_qualification", "") or "",
         "subject_areas": (getattr(profile, "expertise", "") or "")[:255],
         "institution_url": getattr(profile, "affiliation_url", "") or "",
+        "institutional_profile_url": getattr(profile, "institutional_profile_url", "") or "",
         "years_of_experience": _years(getattr(profile, "experience_years", "")),
+        "picture": getattr(profile, "picture", "") or "",
         # Counted, not claimed.
         "publications": member.publications.count(),
         # Remembered, not retyped.
@@ -102,9 +104,14 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
     """`(sent, message, journals_not_accepted)`. Native implementation: creates a local
     Application record (and ApplicationJournal rows) in APID's own database.
     Decisions are made on apid.celnet.in now; mng is not called.
+
+    Side effect: this also writes any corrected profile fields back to the member's
+    Profile and Member row, so the registry stays current with what the applicant
+    just typed. The editorial office sees the latest data on the next page load.
     """
     from apps.identity.models import Member
     from apps.editorial.models import Application, ApplicationJournal, Decision, Journal
+    from apps.profiles.models import Profile
 
     email = (payload.get("email") or "").strip()
     if not email:
@@ -116,6 +123,43 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
     picks = payload.get("journals") or []
     if not picks:
         return False, "Choose at least one journal.", []
+
+    # Mirror the typed form fields back onto the member + profile so the registry
+    # reflects what the applicant just said about themselves.
+    full_name = (payload.get("full_name") or "").strip()
+    if full_name and full_name != member.full_name:
+        member.full_name = full_name[:200]
+        member.save(update_fields=["full_name"])
+    profile, _ = Profile.objects.get_or_create(member=member)
+    profile_updates = {}
+    for src, dst, cap in (
+        ("affiliation", "affiliation", 255),
+        ("affiliation_url", "affiliation_url", 500),
+        ("institutional_profile_url", "institutional_profile_url", 500),
+        ("designation", "designation", 160),
+        ("department", "department", 255),
+    ):
+        value = (payload.get(src) or "").strip()
+        if value:
+            profile_updates[dst] = value[:cap]
+    years = (payload.get("years_of_experience") or "").strip()
+    if years:
+        profile_updates["experience_years"] = years[:40]
+    photo = payload.get("photo_file")
+    if photo is not None:
+        from django.core.files.storage import default_storage
+        import os as _os
+        ext = _os.path.splitext(photo.name)[1].lower() or ".jpg"
+        safe_name = f"profiles/{member.apid}{ext}"
+        path = default_storage.save(safe_name, photo)
+        profile_updates["picture"] = path
+    for k, v in profile_updates.items():
+        setattr(profile, k, v)
+    if profile_updates:
+        profile.save()
+    if (payload.get("phone") or "").strip() and not member.contact_number:
+        member.contact_number = payload["phone"].strip()[:40]
+        member.save(update_fields=["contact_number"])
 
     not_matched: List[str] = []
     create_kwargs = dict(

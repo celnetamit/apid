@@ -609,13 +609,17 @@ def verify_appointment(request, pk: int):
 
 @login_required
 def apply(request):
-    """Apply for an editorial board. Decided on manuscript-ngine, not here.
+    """Apply for an editorial board.
 
-    The registry answers eleven of that form's twenty-two fields, and two of them better
-    than a form can: the publication count is counted rather than claimed, and prior
-    board service is remembered rather than retyped.
+    The registry answers most of the form from the member's existing Profile,
+    but asks for anything missing (photo, affiliation link, institutional
+    profile URL, years of experience, CV) because the office cannot evaluate
+    a half-filled application. Anything typed here is mirrored back onto the
+    Profile, so the correction updates the registry too.
     """
     known = apply_bridge.prefill(request.user)
+    journals = apply_bridge.journals_to_offer()
+    subjects = sorted({(j.subject or "").strip() for j in journals if j.subject})
 
     if request.method == "POST":
         picked = []
@@ -625,45 +629,80 @@ def apply(request):
                 picked.append({"journal": title.strip(),
                                "role": (role or "associate").strip()})
         statement = (request.POST.get("statement") or "").strip()
+        full_name = (request.POST.get("full_name") or "").strip()
+        affiliation = (request.POST.get("affiliation") or "").strip()
+        affiliation_url = (request.POST.get("affiliation_url") or "").strip()
+        inst_profile_url = (request.POST.get("institutional_profile_url") or "").strip()
+        years_exp = (request.POST.get("years_of_experience") or "").strip()
+        phone = (request.POST.get("phone") or "").strip()
+
+        errors: list[str] = []
+        if not full_name:
+            errors.append("Please enter your full name.")
+        if not phone:
+            errors.append("Phone number is required.")
+        if not affiliation:
+            errors.append("Affiliation is required.")
+        if not affiliation_url or "." not in affiliation_url:
+            errors.append("Please share the website URL of your affiliation.")
+        if not inst_profile_url or "." not in inst_profile_url:
+            errors.append("Please share the link to your institutional profile page.")
+        if not years_exp or not years_exp.replace(".", "", 1).isdigit():
+            errors.append("Years of experience must be a number.")
         if not picked:
-            messages.error(request, "Choose at least one journal.")
-        elif len(statement) < 40:
-            messages.error(request, "Please say a little about why — a few sentences "
-                                    "is enough, and it is the part only you can write.")
+            errors.append("Choose at least one journal.")
+        if len(statement) < 40:
+            errors.append("Please say a little about why — a few sentences is "
+                          "enough, and it is the part only you can write.")
+
+        # Photo: required if profile has none; otherwise optional (replace).
+        import os as _os
+        photo = request.FILES.get("photo")
+        if photo:
+            MAX_PHOTO = 4 * 1024 * 1024
+            PHOTO_EXTS = (".jpg", ".jpeg", ".png", ".webp")
+            if photo.size > MAX_PHOTO:
+                errors.append("Profile photo must be under 4 MB.")
+            elif _os.path.splitext(photo.name)[1].lower() not in PHOTO_EXTS:
+                errors.append("Profile photo must be JPG, PNG or WEBP.")
+        elif not known.get("picture"):
+            errors.append("Please upload a profile photo (JPG, PNG or WEBP).")
+
+        # CV: always required for a board application.
+        cv = request.FILES.get("cv")
+        if not cv:
+            errors.append("Please attach your CV (PDF, DOC or DOCX, up to 5 MB).")
         else:
-            # wisp 2026-10-03: optional CV upload. Validated before touching the bridge.
-            cv = request.FILES.get("cv")
-            cv_ok = True
-            if cv:
-                MAX_BYTES = 5 * 1024 * 1024
-                ALLOWED = (".pdf", ".doc", ".docx")
-                import os as _os
-                ext = _os.path.splitext(cv.name)[1].lower()
-                if cv.size > MAX_BYTES:
-                    messages.error(request, "CV is larger than 5 MB. "
-                                            "Please upload a smaller file.")
-                    cv_ok = False
-                elif ext not in ALLOWED:
-                    messages.error(request, "CV must be a PDF, DOC or DOCX file.")
-                    cv_ok = False
-            if cv_ok:
-                payload = dict(known, journals=picked, statement=statement, cv_file=cv)
-                # The applicant may correct what the registry filled in; their word wins.
-                for field in ("phone", "affiliation", "designation", "department"):
-                    typed = (request.POST.get(field) or "").strip()
-                    if typed:
-                        payload[field] = typed
-                sent, detail, not_accepted = apply_bridge.send(payload)
-            else:
-                sent, detail, not_accepted = False, "", []
+            MAX_CV = 5 * 1024 * 1024
+            CV_EXTS = (".pdf", ".doc", ".docx")
+            if cv.size > MAX_CV:
+                errors.append("CV must be under 5 MB.")
+            elif _os.path.splitext(cv.name)[1].lower() not in CV_EXTS:
+                errors.append("CV must be a PDF, DOC or DOCX file.")
+
+        if errors:
+            for e in errors:
+                messages.error(request, e)
+        else:
+            payload = dict(known,
+                           journals=picked, statement=statement,
+                           full_name=full_name, affiliation=affiliation,
+                           affiliation_url=affiliation_url,
+                           institutional_profile_url=inst_profile_url,
+                           years_of_experience=years_exp, phone=phone,
+                           cv_file=cv, photo_file=photo)
+            # The applicant may correct what the registry filled in; their word wins.
+            for field in ("designation", "department"):
+                typed = (request.POST.get(field) or "").strip()
+                if typed:
+                    payload[field] = typed
+            sent, detail, not_accepted = apply_bridge.send(payload)
             if sent:
                 messages.success(
                     request,
-                    "Your application has gone to the editorial office. They answer it "
-                    "on the editorial platform, and they will write to you there.")
+                    "Your application has reached the editorial office. "
+                    "You'll hear from them by email.")
                 if not_accepted:
-                    # Said plainly, because the application went anyway: the applicant
-                    # must not believe they applied for a journal that never got it.
                     messages.warning(
                         request,
                         "One thing: the editorial platform does not have "
@@ -671,12 +710,13 @@ def apply(request):
                         + ". The rest of your application went; write to the office if "
                           "you meant that journal.")
                 return redirect("dashboard")
-            messages.error(request, detail)
+            messages.error(request, detail or "Something went wrong — please try again.")
 
     return render(request, "editorial/apply.html", {
         "known": known,
-        "journals": apply_bridge.journals_to_offer(),
+        "journals": journals,
         "roles": apply_bridge.ROLES,
+        "subjects": subjects,
     })
 
 
