@@ -44,6 +44,9 @@ def profile(request, apid: str):
                      .filter(ended_on__isnull=True))),
         apid=apid)
     full_view = request.user.is_authenticated
+    # wisp 2026-10-03: share widget belongs to the profile owner, not the public.
+    # Anyone else wanting the link can copy it from the browser bar.
+    is_owner = full_view and request.user.pk == member.pk
     counts = SocialCounts.objects.filter(member=member).first() if full_view else None
     i_follow = bool(
         full_view and request.user != member
@@ -116,6 +119,7 @@ def profile(request, apid: str):
         "i_follow": i_follow,
         "posts": member.posts.filter(hidden=False)[:5] if full_view else None,
         "full_view": full_view,
+        "is_owner": is_owner,
         "can_invite": can_invite,
         "can_impersonate": can_impersonate,
         "invite_journals": invite_journals,

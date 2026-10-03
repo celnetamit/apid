@@ -101,7 +101,9 @@
         {% endif %}
       </div>
       {% endif %}
-      {# wisp 2026-10-02 pm: share widget — present on every profile view #}
+      {# wisp 2026-10-03: share widget — owner only. Links printed in a paper
+         are shared by the person whose profile it is, not by every passerby. #}
+      {% if is_owner %}
       <div class="share-row">
         <span class="share-label">Share</span>
         <button type="button" class="share-btn copy" data-copy="{{ profile_url }}" title="Copy profile link">
@@ -130,6 +132,7 @@
           <span class="ico">🖼</span>Card
         </a>
       </div>
+      {% endif %}
     </div>
   </div>
 
