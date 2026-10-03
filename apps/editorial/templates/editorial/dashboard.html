@@ -15,8 +15,11 @@
                       border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
  .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
  .filter-bar .clear:hover { color:var(--primary); }
- .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px;
+                display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
  .count-note strong { color:var(--ink); }
+ .count-note .export-btn { color:var(--primary); text-decoration:none; font-weight:600; font-size:13px; }
+ .count-note .export-btn:hover { text-decoration:underline; }
 
  table.datatable { width:100%; border-collapse:collapse; background:#fff;
                    border:1px solid var(--line); border-radius:10px; overflow:hidden; }
@@ -92,7 +95,10 @@
   {% endif %}
 </form>
 
-<p class="count-note">Showing <strong>{{ recent|length }}</strong> of <strong>{{ decisions_total }}</strong> matching decision{{ decisions_total|pluralize }}.</p>
+<p class="count-note">
+  <span>Showing <strong>{{ recent|length }}</strong> of <strong>{{ decisions_total }}</strong> matching decision{{ decisions_total|pluralize }}.</span>
+  <a class="export-btn" href="?journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&export=csv">⬇ Export CSV (all)</a>
+</p>
 
 <table class="datatable">
   <thead>

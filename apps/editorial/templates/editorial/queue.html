@@ -23,8 +23,19 @@
  .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
  .filter-bar .clear:hover { color:var(--primary); }
 
- .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px;
+                display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
  .count-note strong { color:var(--ink); }
+ .count-note .export-btn { color:var(--primary); text-decoration:none; font-weight:600; font-size:13px; }
+ .count-note .export-btn:hover { text-decoration:underline; }
+
+ .pager { display:flex; align-items:center; justify-content:center; gap:10px;
+          margin:20px 0 0; font-size:14px; }
+ .pager a, .pager .cur { padding:7px 13px; border:1px solid var(--line); border-radius:6px;
+                         color:var(--ink); text-decoration:none; }
+ .pager a:hover { border-color:var(--primary); color:var(--primary); }
+ .pager .cur { background:var(--primary); color:#fff; border-color:var(--primary); }
+ .pager .mut { color:var(--muted); font-size:13px; }
 
  table.datatable { width:100%; border-collapse:collapse; background:#fff;
                    border:1px solid var(--line); border-radius:10px; overflow:hidden; }
@@ -101,7 +112,10 @@
   {% endif %}
 </form>
 
-<p class="count-note">Showing <strong>{{ shown }}</strong> of <strong>{{ total }}</strong> application{{ total|pluralize }} in this view.</p>
+<p class="count-note">
+  <span>Page <strong>{{ page_num }}</strong> of <strong>{{ total_pages }}</strong> · showing <strong>{{ shown }}</strong> of <strong>{{ total }}</strong> application{{ total|pluralize }}.</span>
+  <a class="export-btn" href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&export=csv">⬇ Export CSV</a>
+</p>
 
 <table class="datatable">
   <thead>
@@ -141,4 +155,12 @@
     {% endfor %}
   </tbody>
 </table>
+
+{% if total_pages > 1 %}
+<div class="pager">
+  {% if page_num > 1 %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&page={{ page_num|add:'-1' }}">← Prev</a>{% endif %}
+  <span class="mut">Page {{ page_num }} of {{ total_pages }}</span>
+  {% if page_num < total_pages %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&page={{ page_num|add:'1' }}">Next →</a>{% endif %}
+</div>
+{% endif %}
 {% endblock %}
