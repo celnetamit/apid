@@ -1,23 +1,31 @@
 {% extends "editorial/office_base.html" %}
 {% block office_title %}Boards{% endblock %}
-{% block office_style %}{% include "members/_style.html" %}
- .j { display:flex; gap:12px; border-top:1px solid var(--line); padding:11px 0; }
- .j:first-child { border-top:0; }
- .n { width:44px; text-align:right; font-variant-numeric:tabular-nums; }
- .none { color:#a3352b; font-weight:600; }
-{% endblock %}
 {% block office_section %}boards{% endblock %}
+{% block office_style %}
+ .empty-count { color:#a3352b; }
+{% endblock %}
+
 {% block office_main %}
-<div class="card">
-  <h1>Editorial boards</h1>
-  <p class="muted small">{{ total }} journals · <strong class="none">{{ empty }}</strong>
-    with nobody currently serving. Emptiest first — that is the list worth working.</p>
-  {% for j in journals %}
-    <div class="j">
-      <div class="n {% if not j.serving %}none{% endif %}">{{ j.serving }}</div>
-      <div><a href="{% url 'board' j.pk %}">{{ j.title }}</a>
-        <div class="muted small">{{ j.subject }}</div></div>
-    </div>
-  {% endfor %}
-</div>
+<h1 style="margin:0 0 4px">Editorial boards</h1>
+<p class="muted small" style="margin:0 0 14px">{{ total }} journal{{ total|pluralize }} · <strong class="empty-count">{{ empty }}</strong>
+  with nobody currently serving. Emptiest first — the list worth working.</p>
+
+<table class="datatable">
+  <thead>
+    <tr><th style="width:90px" class="num">Serving</th><th>Journal</th></tr>
+  </thead>
+  <tbody>
+    {% for j in journals %}
+      <tr>
+        <td class="num {% if not j.serving %}empty-count{% endif %}" style="font-weight:700">{{ j.serving }}</td>
+        <td>
+          <a href="{% url 'board' j.pk %}" style="color:var(--ink);font-weight:600">{{ j.title }}</a>
+          {% if j.subject %}<div class="meta">{{ j.subject }}</div>{% endif %}
+        </td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="2" class="empty">No journals.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

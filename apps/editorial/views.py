@@ -52,6 +52,31 @@ STATUS_LABELS = {
 }
 
 
+def _csv_response(filename: str, rows):
+    """Stream a list[dict] as a CSV download. The first row's keys form the
+    header, so caller is responsible for consistent dict shape."""
+    import csv
+    from django.http import StreamingHttpResponse
+    class _Echo:
+        def write(self, value): return value
+    writer = csv.writer(_Echo())
+    rows = iter(rows)
+    try:
+        first = next(rows)
+    except StopIteration:
+        first = {}
+    header = list(first.keys()) if first else []
+    def gen():
+        if header:
+            yield writer.writerow(header)
+            yield writer.writerow([first.get(h, "") for h in header])
+            for r in rows:
+                yield writer.writerow([r.get(h, "") for h in header])
+    resp = StreamingHttpResponse(gen(), content_type="text/csv")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
+
+
 @queue_or_manager
 def queue(request):
     """Local-DB application queue.
@@ -80,12 +105,21 @@ def queue(request):
         if not journal_ids:
             journal_ids = [-1]  # match nothing
 
+    # CSV export streams every matching row (bypassing pagination); a Boss who
+    # filtered down to one journal + a date range wants the whole slice, not
+    # a page of it.
+    want_csv = request.GET.get("export") == "csv"
+    try:
+        page_num = max(1, int(request.GET.get("page") or 1))
+    except (TypeError, ValueError):
+        page_num = 1
+    page_size = 10_000 if want_csv else 50
     try:
         counts = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
                                date_from=date_from, date_to=date_to)
         page_data = mng_queue(
             status=state if state and state != "all" else None,
-            q=query or None, page=1, page_size=100,
+            q=query or None, page=page_num, page_size=page_size,
             journal_ids=journal_ids, journal_id=journal_id,
             date_from=date_from, date_to=date_to,
         )
@@ -97,6 +131,28 @@ def queue(request):
     for r in rows:
         label, tone = STATUS_LABELS.get(r["status"], (r["status_display"], "muted"))
         r["state_label"], r["state_tone"] = label, tone
+
+    if want_csv:
+        from django.utils import timezone as _tz
+        def _csv_rows():
+            for r in rows:
+                yield {
+                    "APID": r.get("pk"),
+                    "Applicant": r.get("applicant", ""),
+                    "Email": r.get("email", ""),
+                    "Role": r.get("role", ""),
+                    "Subject": r.get("subject", ""),
+                    "Journals": r.get("journals", ""),
+                    "Status": r.get("state_label", r.get("status", "")),
+                    "Applied": r.get("applied_at", "").isoformat() if r.get("applied_at") else "",
+                    "Decided": r.get("decided_at", "").isoformat() if r.get("decided_at") else "",
+                }
+        return _csv_response(
+            f"apid-queue-{state}-{_tz.now().strftime('%Y%m%d')}.csv", _csv_rows())
+
+    total = page_data.get("total", 0)
+    import math as _math
+    total_pages = max(1, _math.ceil(total / page_size)) if page_size else 1
 
     tabs = [
         ("new",         "Pending",      counts.get("new", 0)),
@@ -147,7 +203,10 @@ def queue(request):
     return render(request, "editorial/queue.html", {
         "rows": rows,
         "shown": len(rows),
-        "total": page_data.get("total", 0),
+        "total": total,
+        "page_num": page_num,
+        "total_pages": total_pages,
+        "page_size": page_size,
         "state": state,
         "query": query,
         "counts": counts,
@@ -208,8 +267,36 @@ def approved_profiles(request):
         qs = qs.filter(started_on__lte=date_to)
     qs = qs.order_by("-started_on", "member__full_name", "role")
 
-    rows = list(qs[:800])  # safety cap; paginate when it starts to pinch
-    distinct_members = len({a.member_id for a in rows})
+    # CSV export dumps everything matching the filters; the table pages 50.
+    want_csv = request.GET.get("export") == "csv"
+    total_matches = qs.count()
+    distinct_members = qs.values("member_id").distinct().count()
+
+    if want_csv:
+        from django.utils import timezone as _tz
+        def _csv_rows():
+            for a in qs.iterator(chunk_size=500):
+                yield {
+                    "APID": a.member.apid,
+                    "Member": a.member.display_name or a.member.username,
+                    "Email": a.member.email,
+                    "Journal": (a.journal.title if a.journal else ""),
+                    "Journal abbreviation": (a.journal.abbreviation if a.journal else ""),
+                    "Role": a.role,
+                    "Started": a.started_on.isoformat() if a.started_on else "",
+                }
+        return _csv_response(
+            f"apid-approved-{_tz.now().strftime('%Y%m%d')}.csv", _csv_rows())
+
+    import math as _math
+    try:
+        page_num = max(1, int(request.GET.get("page") or 1))
+    except (TypeError, ValueError):
+        page_num = 1
+    page_size = 50
+    total_pages = max(1, _math.ceil(total_matches / page_size))
+    page_num = min(page_num, total_pages)
+    rows = list(qs[(page_num - 1) * page_size: page_num * page_size])
 
     # Journal dropdown counts: active appointments per journal, honouring the
     # same date filter and role-mailbox strip as the main table, so the number
@@ -237,8 +324,11 @@ def approved_profiles(request):
 
     return render(request, "editorial/approved.html", {
         "rows": rows,
-        "total_appointments": len(rows),
+        "shown": len(rows),
+        "total_appointments": total_matches,
         "total_members": distinct_members,
+        "page_num": page_num,
+        "total_pages": total_pages,
         "query": q,
         "journal_choices": journal_choices,
         "selected_journal": journal_id,
@@ -935,6 +1025,24 @@ def dashboard(request):
         decisions_qs = decisions_qs.filter(decided_at__date__lte=rec_to)
     decisions_total = decisions_qs.count()
 
+    # CSV export: give the Boss every matching decision for reporting, not
+    # just the dashboard's top-25 snapshot.
+    if request.GET.get("export") == "csv":
+        def _csv_rows():
+            for a in decisions_qs.select_related("member").order_by("-decided_at").iterator(chunk_size=500):
+                yield {
+                    "APID": a.member.apid if a.member else "",
+                    "Applicant": (a.member.display_name if a.member else "") or "",
+                    "Email": (a.member.email if a.member else "") or "",
+                    "Application": a.pk,
+                    "Role": a.applying_for or "",
+                    "Subject": a.subject or "",
+                    "Decision": a.decision,
+                    "Decided": a.decided_at.isoformat() if a.decided_at else "",
+                }
+        return _csv_response(
+            f"apid-decisions-{timezone.now().strftime('%Y%m%d')}.csv", _csv_rows())
+
     from apps.editorial.models import Appointment
     recent = list(decisions_qs.select_related("member")
                   .order_by("-decided_at")[:25])
@@ -1225,12 +1333,33 @@ def emails_log(request):
         logs = logs.filter(kind=kind)
     if status:
         logs = logs.filter(status=status)
+    if request.GET.get("export") == "csv":
+        def _rows():
+            for e in logs.iterator(chunk_size=500):
+                yield {
+                    "When": e.sent_at.isoformat() if e.sent_at else "",
+                    "To": e.to_address,
+                    "Member APID": e.related_member.apid if e.related_member_id else "",
+                    "Kind": e.kind,
+                    "Subject": e.subject,
+                    "Status": e.status,
+                }
+        return _csv_response(f"apid-emails-{timezone.now().strftime('%Y%m%d')}.csv", _rows())
     total = logs.count()
-    logs = list(logs[:200])
+    import math as _math
+    try:
+        page_num = max(1, int(request.GET.get("page") or 1))
+    except (TypeError, ValueError):
+        page_num = 1
+    page_size = 50
+    total_pages = max(1, _math.ceil(total / page_size))
+    page_num = min(page_num, total_pages)
+    rows = list(logs[(page_num - 1) * page_size: page_num * page_size])
     kinds = (EmailLog.objects.values_list("kind", flat=True)
              .exclude(kind="").distinct().order_by("kind"))
     return render(request, "editorial/emails_log.html", {
-        "logs": logs, "total": total, "shown": len(logs),
+        "logs": rows, "total": total, "shown": len(rows),
+        "page_num": page_num, "total_pages": total_pages,
         "q": q, "kind": kind, "status": status,
         "kinds": list(kinds),
         "statuses": EmailLog.Status.choices,

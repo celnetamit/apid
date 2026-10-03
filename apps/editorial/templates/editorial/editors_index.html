@@ -3,14 +3,7 @@
 {% block office_section %}editors{% endblock %}
 {% block office_navsub %}Staff roster{% endblock %}
 {% block office_style %}
- .e-row { grid-template-columns:1fr 1fr 100px 110px; }
- .e-name { color:var(--ink); font-weight:600; font-size:14px; }
- .e-sub { color:var(--muted); font-size:12px; margin-top:2px; }
- .inactive { opacity:0.55; }
- .count { font-weight:700; font-variant-numeric:tabular-nums; text-align:center; }
- .count a { color:var(--primary); }
- .act { text-align:right; }
- @media (max-width:720px) { .e-row { grid-template-columns:1fr auto; } .e-sub, .count { display:none; } }
+ .inactive td { opacity:0.55; }
 {% endblock %}
 
 {% block office_main %}
@@ -27,30 +20,35 @@
   <a class="btn-primary" href="{% url 'editor-new' %}">+ New editor</a>
 </form>
 
-<div class="panel office-list">
-  <div class="row head e-row">
-    <div>Name</div>
-    <div>Email · phone</div>
-    <div style="text-align:center">Journals</div>
-    <div class="act">&nbsp;</div>
-  </div>
-  {% for e in editors %}
-    <div class="row e-row {% if not e.active %}inactive{% endif %}">
-      <div>
-        <div class="e-name">{{ e.name }} {% if not e.active %}<span class="pill no">inactive</span>{% endif %}</div>
-        <div class="e-sub">{{ e.designation }}</div>
-      </div>
-      <div>
-        <div>{{ e.email }}</div>
-        {% if e.phone %}<div class="e-sub">{{ e.phone }}</div>{% endif %}
-      </div>
-      <div class="count">
-        {% if e.journal_count %}<a href="{% url 'journals-index' %}?editor={{ e.pk }}">{{ e.journal_count }}</a>{% else %}0{% endif %}
-      </div>
-      <div class="act"><a href="{% url 'editor-edit' e.pk %}">Edit →</a></div>
-    </div>
-  {% empty %}
-    <div class="row"><div style="grid-column:1/-1;color:var(--muted);text-align:center;padding:24px">No editors yet — click <strong>New editor</strong> above to add one.</div></div>
-  {% endfor %}
-</div>
+<table class="datatable">
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email · phone</th>
+      <th class="num" style="width:100px">Journals</th>
+      <th style="width:110px;text-align:right"></th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in editors %}
+      <tr {% if not e.active %}class="inactive"{% endif %}>
+        <td>
+          <strong>{{ e.name }}</strong>
+          {% if not e.active %}<span class="pill no" style="margin-left:6px">inactive</span>{% endif %}
+          {% if e.designation %}<div class="meta">{{ e.designation }}</div>{% endif %}
+        </td>
+        <td>
+          {{ e.email }}
+          {% if e.phone %}<div class="meta">{{ e.phone }}</div>{% endif %}
+        </td>
+        <td class="num" style="font-weight:700">
+          {% if e.journal_count %}<a href="{% url 'journals-index' %}?editor={{ e.pk }}" style="color:var(--primary)">{{ e.journal_count }}</a>{% else %}0{% endif %}
+        </td>
+        <td style="text-align:right"><a href="{% url 'editor-edit' e.pk %}">Edit →</a></td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="4" class="empty">No editors yet — click <strong>New editor</strong> above to add one.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}
