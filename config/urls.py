@@ -117,6 +117,10 @@ urlpatterns = [
     # wisp 2026-10-02: journal CE routes
     path("office/journals/", editorial.journals_index, name="journals-index"),
     path("office/journals/<int:pk>/manage/", editorial.journal_manage, name="journal-manage"),
+    path("office/editors/", editorial.editors_index, name="editors-index"),
+    path("office/editors/new/", editorial.editor_edit, name="editor-new"),
+    path("office/editors/<int:pk>/edit/", editorial.editor_edit, name="editor-edit"),
+    path("office/editors/<int:pk>/delete/", editorial.editor_delete, name="editor-delete"),
     path("office/boards/", editorial.boards, name="boards"),
     path("office/boards/<int:pk>/", editorial.board, name="board"),
     path("documents/appointments/<int:pk>/letter.pdf", editorial.empanelment_letter,

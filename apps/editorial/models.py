@@ -18,6 +18,35 @@ from django.db import models
 from apps.identity.models import Member
 
 
+class EditorialStaff(models.Model):
+    """Internal editorial-office staff — commissioning editors, publication managers,
+    production editors. These are our own employees, not APID members; one person
+    typically handles many journals, so edits are made once here and reflected on
+    every journal they commission.
+
+    Signs certificates and empanelment letters on behalf of Consortium e-Learning
+    Network Pvt Ltd.
+    """
+
+    name = models.CharField(max_length=200)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=40, blank=True)
+    designation = models.CharField(max_length=120, default="Commissioning Editor")
+    signature_image = models.ImageField(upload_to="signatures/", blank=True)
+    active = models.BooleanField(default=True, db_index=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+        verbose_name = "Editorial staff member"
+        verbose_name_plural = "Editorial staff"
+
+    def __str__(self) -> str:
+        return f"{self.name} <{self.email}>"
+
+
 class Journal(models.Model):
     """From the live Journals Master (form 25, 278 entries). Reconciling these with
     manuscript-ngine's own journal list — the same portfolio, two databases — is a job
@@ -30,6 +59,11 @@ class Journal(models.Model):
     image_url = models.URLField(max_length=800, blank=True)
     status = models.CharField(max_length=60, blank=True)
     wp_entry_id = models.IntegerField(null=True, blank=True, unique=True, db_index=True)
+
+    commissioning_editor = models.ForeignKey(
+        EditorialStaff, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="journals",
+    )
 
     class Meta:
         ordering = ["title"]
