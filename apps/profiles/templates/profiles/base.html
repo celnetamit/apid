@@ -151,7 +151,7 @@
   </button>
   <nav class="top" id="site-nav">
     {% if user.is_authenticated %}
-      <a href="/directory/">Search</a>
+      <a href="/apid-profiles/">Profiles</a>
       <a href="/feed/">Feed</a>
       <a href="/for-you/">For you</a>
       <a href="/notifications/">Alerts{% if unread_notifications %} <span class="badge">{{ unread_notifications }}</span>{% endif %}</a>
@@ -184,6 +184,7 @@
       <div class="ft-col"><h4>Product</h4>
         <a href="/about/">About</a>
         <a href="/apid-profiles/">Profiles</a>
+        <a href="/directory/">Search</a>
         <a href="/eligibility-benefits-and-responsibilities/">Eligibility</a>
         <a href="/how-to-register-on-apid/">How to register</a>
       </div>
