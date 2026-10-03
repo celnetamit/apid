@@ -36,11 +36,13 @@
 
   <form method="post" enctype="multipart/form-data">{% csrf_token %}
     <div class="grid">
-      {# Required on the editorial platform, so required here. A field the office
-         insists on and the screen does not ask for is not a validation rule — it is a
-         refusal the applicant cannot read and cannot fix. 8,740 of the 13,412 members
-         have no phone number stored, so for two in three this box starts empty and the
-         form would otherwise have posted straight into a 400. #}
+      {% comment %}
+      Required on the editorial platform, so required here. A field the office
+      insists on and the screen does not ask for is not a validation rule — it is a
+      refusal the applicant cannot read and cannot fix. 8,740 of the 13,412 members
+      have no phone number stored, so for two in three this box starts empty and the
+      form would otherwise have posted straight into a 400.
+      {% endcomment %}
       <div class="field"><label>Phone <span class="muted">(required)</span></label>
         <input type="text" name="phone" value="{{ known.phone }}" required></div>
       <div class="field"><label>Affiliation <span class="muted">(required)</span></label>
