@@ -1,0 +1,864 @@
+"""The editorial office's queue: applications in, decisions out.
+
+On the live site this is three Formidable forms that only a person knows are related.
+An application is entry 91,204 in form 159; the office's answer is a *different* entry in
+form 200 carrying "Application ID" typed into a box; the appointment is a third entry in
+form 219. Nothing joins them, so nothing can be asked: not "who is waiting", not "how
+long have they waited", not "which journals have nobody".
+
+Here the decision is a field on the application, the appointment points at the
+application it came from, and all three questions are a query. That is the whole reason
+for the rebuild, and this is the page where it shows.
+"""
+
+from __future__ import annotations
+
+import datetime as dt
+
+import weasyprint
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Prefetch, Q
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
+from django.utils import timezone
+
+from apps.editorial import apply as apply_bridge
+from apps.editorial.access import (
+    can_see_application, is_journal_manager, is_office, manager_journals,
+    office_only, queue_or_manager,
+)
+from apps.editorial.models import (Application, ApplicationJournal, Appointment,
+                                   Decision, Journal)
+
+#: What the office can do to an application, and what each one means afterwards.
+ACTIONS = {
+    "accept": Decision.ACCEPTED,
+    "decline": Decision.DECLINED,
+    "hold": Decision.PENDING,
+}
+
+
+STATUS_LABELS = {
+    "new":         ("Pending",     "warn"),
+    "under_review":("Under review","info"),
+    "accepted":    ("Accepted",    "good"),
+    "declined":    ("Declined",    "muted"),
+    "withdrawn":   ("Withdrawn",   "muted"),
+    "transferred": ("Transferred", "info"),
+}
+
+
+@queue_or_manager
+def queue(request):
+    """The legacy queue, now read from mng.
+
+    Decisions are made in manuscript-ngine — this page is a viewer. Every row
+    links to the mng decide screen; the queue itself is a signed API call.
+    """
+    from apps.editorial.mng_client import queue as mng_queue, queue_summary
+    state = request.GET.get("state", "new")
+    query = (request.GET.get("q") or "").strip()
+
+    try:
+        counts = queue_summary()
+        page_data = mng_queue(
+            status=state if state and state != "all" else None,
+            q=query or None,
+            page=1, page_size=100,
+        )
+    except Exception as exc:                                     # noqa: BLE001
+        messages.error(request, f"Could not reach the decisions system: {exc}")
+        counts, page_data = {}, {"rows": [], "total": 0}
+
+    rows = page_data.get("rows", [])
+    for r in rows:
+        label, tone = STATUS_LABELS.get(r["status"], (r["status_display"], "muted"))
+        r["state_label"], r["state_tone"] = label, tone
+
+    tabs = [
+        ("new",         "Pending",      counts.get("new", 0)),
+        ("under_review","Under review", counts.get("under_review", 0)),
+        ("accepted",    "Accepted",     counts.get("accepted", 0)),
+        ("declined",    "Declined",     counts.get("declined", 0)),
+    ]
+
+    return render(request, "editorial/queue.html", {
+        "rows": rows,
+        "shown": len(rows),
+        "total": page_data.get("total", 0),
+        "state": state,
+        "query": query,
+        "counts": counts,
+        "tabs": tabs,
+    })
+
+
+@queue_or_manager
+def approved_profiles(request):
+    """A directory of every member with an active editorial appointment.
+
+    One row per member (not per appointment), so somebody with three roles
+    shows up once with all three listed. Office sees everybody; a journal
+    manager sees only members with an appointment on a journal they manage.
+    """
+    from apps.editorial.models import Appointment
+    qs = (Appointment.objects.filter(ended_on__isnull=True)
+          .select_related("member", "member__profile", "journal", "application"))
+    if not is_office(request.user):
+        managed_ids = list(manager_journals(request.user).values_list("id", flat=True))
+        qs = qs.filter(journal_id__in=managed_ids)
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        from django.db.models import Q
+        qs = qs.filter(
+            Q(member__full_name__icontains=q)
+            | Q(member__email__icontains=q)
+            | Q(journal__title__icontains=q)
+            | Q(role__icontains=q))
+    qs = qs.order_by("member__full_name", "-started_on")
+
+    # Group by member. Dict preserves insertion order (Py 3.7+).
+    members = {}
+    for appt in qs[:800]:  # safety cap; paginate properly later if needed
+        row = members.setdefault(appt.member_id, {
+            "member": appt.member,
+            "profile": getattr(appt.member, "profile", None),
+            "appointments": [],
+        })
+        row["appointments"].append(appt)
+
+    return render(request, "editorial/approved.html", {
+        "rows": list(members.values()),
+        "total_members": len(members),
+        "total_appointments": sum(len(r["appointments"]) for r in members.values()),
+        "query": q,
+        "user_is_office": is_office(request.user),
+    })
+
+
+@login_required
+def impersonate(request, apid):
+    """Sign in as another member (support/debugging). Office or superuser only.
+
+    The original user id is parked on the session so a banner can offer "Return
+    to admin" on every page. A warning is logged for the audit trail.
+    """
+    from apps.identity.models import Member
+    from django.contrib.auth import login
+    if not (request.user.is_superuser or is_office(request.user)):
+        raise PermissionDenied("Only the editorial office or an admin may impersonate.")
+    target = get_object_or_404(Member, apid=apid)
+    if not target.is_active:
+        messages.error(request, "That account is deactivated — impersonation refused.")
+        return redirect("profile", apid=apid)
+    if target.pk == request.user.pk:
+        messages.info(request, "You are already signed in as yourself.")
+        return redirect("profile", apid=apid)
+    # Preserve original on the session across the login() rotation.
+    original_pk = request.user.pk
+    original_display = (getattr(request.user, "display_name", None)
+                        or request.user.get_full_name() or request.user.username)
+    import logging as _lg
+    _lg.getLogger(__name__).warning(
+        "impersonation: %s (pk=%s) -> %s (pk=%s, apid=%s)",
+        request.user.username, original_pk, target.username, target.pk, target.apid)
+    login(request, target, backend="apps.identity.backends.UsernameOrEmailBackend")
+    request.session["impersonator_id"] = original_pk
+    request.session["impersonator_display"] = original_display
+    messages.info(request,
+        f"Signed in as {target.display_name}. Use the red banner on top to return.")
+    return redirect("dashboard")
+
+
+@login_required
+def stop_impersonating(request):
+    """Exit impersonation — swap session back to the original admin."""
+    from apps.identity.models import Member
+    from django.contrib.auth import login, logout
+    orig_pk = request.session.get("impersonator_id")
+    if not orig_pk:
+        return redirect("dashboard")
+    orig = Member.objects.filter(pk=orig_pk, is_active=True).first()
+    if orig is None:
+        # Original account vanished or deactivated — fully sign out.
+        logout(request)
+        return redirect("login")
+    import logging as _lg
+    _lg.getLogger(__name__).warning(
+        "impersonation-stop: back to %s (pk=%s)", orig.username, orig.pk)
+    login(request, orig, backend="apps.identity.backends.UsernameOrEmailBackend")
+    request.session.pop("impersonator_id", None)
+    request.session.pop("impersonator_display", None)
+    messages.success(request, "Back to your own account.")
+    return redirect("dashboard")
+
+
+@queue_or_manager
+def application_cv(request, pk):
+    """Serve the CV attached to one Application. Office or managing editor only."""
+    from django.http import FileResponse
+    from apps.editorial.models import Application
+    try:
+        app = Application.objects.get(pk=int(pk))
+    except (ValueError, Application.DoesNotExist):
+        raise Http404()
+    if not app.cv:
+        raise Http404("No CV on this application.")
+    if not is_office(request.user):
+        # A journal manager may see the CV for their own journals.
+        app_journal_ids = set(app.journals.values_list("journal_id", flat=True))
+        if not manager_journals(request.user).filter(pk__in=app_journal_ids).exists():
+            raise PermissionDenied()
+    return FileResponse(app.cv.open("rb"), as_attachment=False,
+                        filename=app.cv.name.rsplit("/", 1)[-1])
+
+
+@queue_or_manager
+def application(request, pk):
+    """One legacy application, everything known about the person, plus every
+    journal choice on it and its per-journal status.
+
+    The `pk` in the URL is the APID Application id (an int, kept so old
+    bookmarks still work). It maps to a mng BoardApplication via the
+    `legacy_apid_application_id` field.
+    """
+    from apps.editorial.mng_client import application_detail
+    try:
+        payload = application_detail(str(pk))
+    except Exception as exc:                                     # noqa: BLE001
+        messages.error(request, f"Could not reach the decisions system: {exc}")
+        payload = None
+    if payload is None:
+        raise Http404("This application is not on the queue.")
+
+    app_data = payload["application"]
+    choices = payload["choices"]
+    # wisp 2026-10-02 pm: which choices this user can decide on.
+    user_is_office = is_office(request.user)
+    managed_ids = set(manager_journals(request.user).values_list("id", flat=True))
+    for c in choices:
+        label, tone = STATUS_LABELS.get(c["status"], (c["status_display"], "muted"))
+        c["state_label"], c["state_tone"] = label, tone
+        c["can_decide"] = bool(
+            user_is_office
+            or (c.get("journal_id") and c["journal_id"] in managed_ids)
+        )
+
+    # Local member for the profile sidebar (photo, appointments, publications).
+    from apps.identity.models import Member
+    member = Member.objects.filter(email__iexact=app_data["email"]).first()
+
+    return render(request, "editorial/application.html", {
+        "app": app_data,
+        "choices": choices,
+        "member": member,
+        "profile": getattr(member, "profile", None) if member else None,
+        "publications": member.publications.all()[:10] if member else [],
+        "appointments": (member.appointments.select_related("journal").all()
+                         if member else []),
+        "user_is_office": user_is_office,
+    })
+
+
+@queue_or_manager
+def decide(request, pk):
+    # wisp 2026-10-02 pm: per-journal-choice decisions.
+    """Decide one ApplicationJournal (one journal choice on an application).
+
+    Each journal on the application is decided independently by its own
+    manager or commissioning editor — accepting on one does not accept
+    the others. The application's overall `decision` is derived afterwards.
+
+    POST params:
+      choice_id: ApplicationJournal.pk (required — which journal this decision is on)
+      action: "accept" | "decline" | "withdraw"
+      role: role string on the Appointment (accept only; defaults to applying_for)
+      note: free-text decision note (optional)
+    """
+    from django.utils import timezone
+    from apps.editorial.models import (
+        Application, ApplicationJournal, Appointment, Decision)
+    app = get_object_or_404(Application.objects.select_related("member"), pk=pk)
+
+    if request.method != "POST":
+        return redirect("application", pk=pk)
+
+    choice_id = request.POST.get("choice_id")
+    try:
+        choice = ApplicationJournal.objects.select_related("journal").get(
+            pk=int(choice_id or 0), application=app)
+    except (ValueError, ApplicationJournal.DoesNotExist):
+        messages.error(request, "Pick a journal choice before deciding.")
+        return redirect("application", pk=pk)
+
+    if not choice.journal_id:
+        messages.error(request,
+            "This choice is not linked to a journal in the registry yet — "
+            "set the journal on the choice before deciding.")
+        return redirect("application", pk=pk)
+
+    # Permission: office OR this specific journal's manager/CE.
+    managed_ids = set(manager_journals(request.user).values_list("id", flat=True))
+    if not (is_office(request.user) or choice.journal_id in managed_ids):
+        raise PermissionDenied(
+            "Only this journal's manager or the editorial office can decide this choice.")
+
+    action = (request.POST.get("action") or "").strip()
+    note = (request.POST.get("note") or "").strip()
+
+    if action == "accept":
+        role = (request.POST.get("role")
+                or choice.role_appointed
+                or app.applying_for
+                or "Reviewer").strip()
+        choice.decision = Decision.ACCEPTED
+        choice.decided_at = timezone.now()
+        choice.decided_by = request.user
+        choice.role_appointed = role
+        if note:
+            choice.note = note
+        choice.save()
+        appt, _ = Appointment.objects.get_or_create(
+            member=app.member, journal=choice.journal, application=app,
+            defaults={"role": role, "started_on": timezone.now().date()})
+        messages.success(request,
+            f"Accepted. {app.member.display_name} is now a {appt.role} on {choice.journal.title}.")
+    elif action == "decline":
+        choice.decision = Decision.DECLINED
+        choice.decided_at = timezone.now()
+        choice.decided_by = request.user
+        if note:
+            choice.note = note
+        choice.save()
+        messages.success(request,
+            f"Declined on {choice.journal.title}.")
+    elif action == "withdraw":
+        choice.decision = Decision.WITHDRAWN
+        choice.decided_at = timezone.now()
+        choice.decided_by = request.user
+        choice.save()
+        messages.info(request, f"Withdrawn from {choice.journal.title}.")
+    else:
+        messages.error(request, "Unknown action.")
+        return redirect("application", pk=pk)
+
+    # Re-derive the application's overall decision from the choice decisions.
+    _sync_application_decision(app)
+
+    return redirect("application", pk=pk)
+
+
+def _sync_application_decision(app):
+    """Derived application state from the per-journal choices.
+
+    - If any journal choice is ACCEPTED → application is ACCEPTED.
+    - Else if there's any PENDING choice → application stays PENDING.
+    - Else all choices are DECLINED/WITHDRAWN → application is DECLINED.
+    Keeps `decided_at` / `decided_by` as the most recent choice decision.
+    """
+    from django.utils import timezone
+    from apps.editorial.models import Decision
+    choices = list(app.journals.all())
+    if not choices:
+        return
+    accepted = [c for c in choices if c.decision == Decision.ACCEPTED]
+    pending = [c for c in choices if c.decision == Decision.PENDING]
+    if accepted:
+        new_state = Decision.ACCEPTED
+        last = max(accepted, key=lambda c: c.decided_at or timezone.now())
+    elif pending:
+        new_state = Decision.PENDING
+        last = None
+    else:
+        new_state = Decision.DECLINED
+        last = max(choices, key=lambda c: c.decided_at or timezone.now())
+    if app.decision != new_state or (last and app.decided_at != last.decided_at):
+        app.decision = new_state
+        app.decided_at = last.decided_at if last else None
+        app.decided_by = last.decided_by if last else None
+        app.save(update_fields=["decision", "decided_at", "decided_by"])
+
+@office_only
+def boards(request):
+    """Every journal and who serves on it — including the ones with nobody.
+
+    The empty ones are the point. A list of journals that have editors can be had from
+    the appointments alone; the question worth asking is which of the 278 have none.
+    """
+    journals = (Journal.objects.annotate(
+        serving=Count("appointments", filter=Q(appointments__ended_on__isnull=True)))
+        .order_by("serving", "title"))
+    return render(request, "editorial/boards.html", {
+        "journals": journals,
+        "empty": sum(1 for j in journals if not j.serving),
+        "total": journals.count(),
+    })
+
+
+@office_only
+def board(request, pk: int):
+    journal = get_object_or_404(Journal, pk=pk)
+    return render(request, "editorial/board.html", {
+        "journal": journal,
+        "serving": journal.appointments.select_related("member", "member__profile")
+                          .filter(ended_on__isnull=True).order_by("role",
+                                                                 "member__full_name"),
+        "past": journal.appointments.select_related("member")
+                       .filter(ended_on__isnull=False).order_by("-ended_on"),
+    })
+
+
+def office_link(request):
+    """Whether to show the office link in the header. A bool, asked at render time."""
+    return is_office(request.user)
+
+
+def _pdf_response(template, context, filename):
+    """Render an HTML template to PDF and return it as a download."""
+    html_string = render_to_string(template, context)
+    pdf_bytes = weasyprint.HTML(string=html_string).write_pdf()
+    resp = HttpResponse(pdf_bytes, content_type="application/pdf")
+    resp["Content-Disposition"] = f'attachment; filename="{filename}"'
+    return resp
+
+
+def _qr_data_url(payload: str) -> str:
+    """Return a PNG data: URL of a QR code encoding `payload`.
+
+    Used on certificate/letter PDFs so a scanner can jump to the verification
+    page without ever typing the URL. Embedded as base64 so WeasyPrint does
+    not need network access.
+    """
+    import base64 as _b64
+    import io as _io
+    import qrcode as _qr
+    img = _qr.make(payload, box_size=10, border=2)
+    buf = _io.BytesIO()
+    img.save(buf, format="PNG")
+    return "data:image/png;base64," + _b64.b64encode(buf.getvalue()).decode()
+
+
+def _journal_signatory_native(journal):
+    """Pick a signatory for a journal's letter/certificate from the local DB.
+
+    Priority: Commissioning Editor → Chief Editor → Editor-in-Chief → Managing Editor.
+    If nothing matches, the templates fall back to "Editorial Office".
+    """
+    if not journal:
+        return {}
+    from apps.editorial.models import Appointment
+    priority = ["Commissioning Editor", "Chief Editor",
+                "Editor-in-Chief", "Managing Editor"]
+    appts = {a.role: a for a in
+             Appointment.objects.filter(journal=journal, ended_on__isnull=True,
+                                        role__in=priority)
+             .select_related("member")}
+    for role in priority:
+        a = appts.get(role)
+        if a:
+            return {
+                "signatory_name": a.member.display_name or a.member.username,
+                "signatory_title": role,
+                "imprint_name": "Consortium e-Learning Network Pvt Ltd",
+            }
+    return {}
+
+
+def _logo_data_url():
+    """Base64 the APID logo once per process — WeasyPrint has no network."""
+    import base64 as _b64
+    from django.contrib.staticfiles import finders
+    path = finders.find("apid/apid-logo.png")
+    if not path:
+        return ""
+    with open(path, "rb") as fp:
+        return "data:image/png;base64," + _b64.b64encode(fp.read()).decode()
+
+
+_LOGO_URL_CACHE = None
+
+def _appointment_context(request, appt):
+    """Shared context for certificate + letter + verify pages."""
+    global _LOGO_URL_CACHE
+    if _LOGO_URL_CACHE is None:
+        _LOGO_URL_CACHE = _logo_data_url()
+    verify_url = request.build_absolute_uri(
+        f"/verify/appointment/{appt.pk}/")
+    return {
+        "appointment": appt,
+        "member": appt.member,
+        "profile": getattr(appt.member, "profile", None),
+        "journal": appt.journal,
+        "today": timezone.now().date(),
+        "sig": _journal_signatory_native(appt.journal),
+        "verify_url": verify_url,
+        "qr_data_url": _qr_data_url(verify_url),
+        "logo_data_url": _LOGO_URL_CACHE,
+    }
+
+
+@login_required
+def resume_pdf(request, pk: int):
+    """Download the applicant's CV, generated from their registry profile.
+
+    Accessible by: the applicant themselves, office staff, and journal managers
+    who can see this application.
+    """
+    item = get_object_or_404(
+        Application.objects.select_related("member", "member__profile"), pk=pk)
+    is_own = request.user.pk == item.member.pk
+    if not (is_own or can_see_application(request.user, item)):
+        raise PermissionDenied()
+    member = item.member
+    return _pdf_response("editorial/resume.html", {
+        "member": member,
+        "profile": getattr(member, "profile", None),
+        "publications": member.publications.order_by("-year")[:20],
+        "appointments": (member.appointments.select_related("journal")
+                         .filter(ended_on__isnull=True)),
+        "today": timezone.now().date(),
+    }, filename=f"cv-{member.apid}.pdf")
+
+
+@login_required
+def empanelment_letter(request, pk: int):
+    """Download the empanelment letter for an appointment.
+
+    Accessible by: the appointee, office staff, and managers of the same journal.
+    """
+    appt = get_object_or_404(
+        Appointment.objects.select_related("member", "member__profile", "journal"), pk=pk)
+    is_own = request.user.pk == appt.member.pk
+    is_mgr = (is_office(request.user)
+              or manager_journals(request.user).filter(pk=appt.journal_id).exists())
+    if not (is_own or is_mgr):
+        raise PermissionDenied()
+    return _pdf_response("editorial/letter.html",
+        _appointment_context(request, appt),
+        filename=f"empanelment-{appt.member.apid}-{appt.pk}.pdf")
+
+
+@login_required
+def editorial_certificate(request, pk: int):
+    """Download the editorial certificate for an appointment.
+
+    Accessible by: the appointee, office staff, and managers of the same journal.
+    """
+    appt = get_object_or_404(
+        Appointment.objects.select_related("member", "member__profile", "journal"), pk=pk)
+    is_own = request.user.pk == appt.member.pk
+    is_mgr = (is_office(request.user)
+              or manager_journals(request.user).filter(pk=appt.journal_id).exists())
+    if not (is_own or is_mgr):
+        raise PermissionDenied()
+    return _pdf_response("editorial/certificate.html",
+        _appointment_context(request, appt),
+        filename=f"editorial-certificate-{appt.member.apid}-{appt.pk}.pdf")
+
+
+@login_required
+def verify_appointment(request, pk: int):
+    """Public-ish verification page for a scanned certificate QR.
+
+    Login is required (SignedInOnly middleware enforces it), so a scanner lands
+    on sign-in first and then here. We never confirm an appointment to an
+    anonymous caller — that is the point of gating the URL.
+    """
+    appt = get_object_or_404(
+        Appointment.objects.select_related("member", "member__profile", "journal"), pk=pk)
+    return render(request, "editorial/verify_appointment.html", {
+        "appointment": appt,
+        "member": appt.member,
+        "profile": getattr(appt.member, "profile", None),
+        "journal": appt.journal,
+        "today": timezone.now().date(),
+        "is_current": appt.ended_on is None,
+    })
+
+
+# ------------------------------------------------------- applying, from here
+
+@login_required
+def apply(request):
+    """Apply for an editorial board. Decided on manuscript-ngine, not here.
+
+    The registry answers eleven of that form's twenty-two fields, and two of them better
+    than a form can: the publication count is counted rather than claimed, and prior
+    board service is remembered rather than retyped.
+    """
+    known = apply_bridge.prefill(request.user)
+
+    if request.method == "POST":
+        picked = []
+        for value in request.POST.getlist("journal"):
+            title, _, role = value.partition("|")
+            if title.strip():
+                picked.append({"journal": title.strip(),
+                               "role": (role or "associate").strip()})
+        statement = (request.POST.get("statement") or "").strip()
+        if not picked:
+            messages.error(request, "Choose at least one journal.")
+        elif len(statement) < 40:
+            messages.error(request, "Please say a little about why — a few sentences "
+                                    "is enough, and it is the part only you can write.")
+        else:
+            # wisp 2026-10-03: optional CV upload. Validated before touching the bridge.
+            cv = request.FILES.get("cv")
+            cv_ok = True
+            if cv:
+                MAX_BYTES = 5 * 1024 * 1024
+                ALLOWED = (".pdf", ".doc", ".docx")
+                import os as _os
+                ext = _os.path.splitext(cv.name)[1].lower()
+                if cv.size > MAX_BYTES:
+                    messages.error(request, "CV is larger than 5 MB. "
+                                            "Please upload a smaller file.")
+                    cv_ok = False
+                elif ext not in ALLOWED:
+                    messages.error(request, "CV must be a PDF, DOC or DOCX file.")
+                    cv_ok = False
+            if cv_ok:
+                payload = dict(known, journals=picked, statement=statement, cv_file=cv)
+                # The applicant may correct what the registry filled in; their word wins.
+                for field in ("phone", "affiliation", "designation", "department"):
+                    typed = (request.POST.get(field) or "").strip()
+                    if typed:
+                        payload[field] = typed
+                sent, detail, not_accepted = apply_bridge.send(payload)
+            else:
+                sent, detail, not_accepted = False, "", []
+            if sent:
+                messages.success(
+                    request,
+                    "Your application has gone to the editorial office. They answer it "
+                    "on the editorial platform, and they will write to you there.")
+                if not_accepted:
+                    # Said plainly, because the application went anyway: the applicant
+                    # must not believe they applied for a journal that never got it.
+                    messages.warning(
+                        request,
+                        "One thing: the editorial platform does not have "
+                        + ", ".join(not_accepted)
+                        + ". The rest of your application went; write to the office if "
+                          "you meant that journal.")
+                return redirect("dashboard")
+            messages.error(request, detail)
+
+    return render(request, "editorial/apply.html", {
+        "known": known,
+        "journals": apply_bridge.journals_to_offer(),
+        "roles": apply_bridge.ROLES,
+    })
+
+
+@queue_or_manager
+def suggestions(request):
+    """Ranked APID members for a journal + role, from the recommender.
+
+    Editor picks a journal + role, and the page shows the top candidates with
+    per-candidate "Invite" buttons. Wraps the mng recommend endpoint.
+    """
+    from apps.editorial.mng_client import recommend
+    from apps.editorial.access import manager_journals, is_office
+    from apps.editorial.models import Journal
+
+    code = (request.GET.get("journal") or "").strip()
+    role = (request.GET.get("role") or "associate").strip()
+
+    if is_office(request.user):
+        journals_qs = Journal.objects.order_by("title")
+    else:
+        journals_qs = manager_journals(request.user).order_by("title")
+
+    candidates = []
+    picked = None
+    if code:
+        picked = journals_qs.filter(abbreviation__iexact=code).first()
+        if picked is not None:
+            try:
+                candidates = recommend(journal_code=picked.abbreviation,
+                                       role=role, limit=25)
+            except Exception as exc:                             # noqa: BLE001
+                messages.error(request, f"Recommender error: {exc}")
+
+    return render(request, "editorial/suggestions.html", {
+        "journals": journals_qs,
+        "picked": picked,
+        "role": role,
+        "candidates": candidates,
+    })
+
+
+@queue_or_manager
+def flow(request):
+    """One-page architectural map of the board application workflow."""
+    return render(request, "editorial/flow.html", {})
+
+def dashboard(request):
+    # wisp 2026-10-02: office dashboard
+    """A landing dashboard for office + journal-manager users.
+
+    Shows a quick count of pending applications, boards they manage, recent
+    decisions, and quick-action tiles. Linked to by the "Office" link in the top nav.
+    """
+    from django.contrib.auth.decorators import login_required as _login
+    from apps.editorial.access import is_office, manager_journals
+    from apps.editorial.models import Application, Appointment, Journal
+    from apps.identity.models import Member
+
+    if not request.user.is_authenticated:
+        return redirect("/accounts/login/?next=/office/")
+    office = is_office(request.user)
+    managed = manager_journals(request.user) if not office else Journal.objects.none()
+    if not (office or managed.exists()):
+        raise PermissionDenied
+
+    # Local pending (from imported data, usually 0 now that mng is live)
+    local_apps = Application.objects.all()
+    local_pending = local_apps.filter(decision="").count()
+    local_decided = local_apps.exclude(decision="").count()
+
+    # Live counts from mng
+    try:
+        from apps.editorial.mng_client import queue_summary
+        mng_counts = queue_summary() or {}
+    except Exception:
+        mng_counts = {}
+    mng_pending = mng_counts.get("new", 0) + mng_counts.get("under_review", 0)
+
+    # Boards
+    if office:
+        board_count = Journal.objects.count()
+        active_appointments = Appointment.objects.filter(ended_on__isnull=True).count()
+        total_members = Member.objects.count()
+        with_appointment = Appointment.objects.filter(ended_on__isnull=True).values("member").distinct().count()
+    else:
+        board_count = managed.count()
+        active_appointments = Appointment.objects.filter(ended_on__isnull=True, journal__in=managed).count()
+        total_members = None
+        with_appointment = None
+
+    # Recent decisions (last 10). Attach accepted appointments per row so the
+    # dashboard can offer certificate + empanelment-letter links inline.
+    from apps.editorial.models import Appointment
+    recent = list(local_apps.exclude(decision__in=["", "pending"])
+                  .select_related("member")
+                  .order_by("-decided_at")[:10])
+    if recent:
+        app_ids = [a.pk for a in recent]
+        appts_by_app = {}
+        for appt in (Appointment.objects
+                     .filter(application_id__in=app_ids)
+                     .select_related("journal")):
+            appts_by_app.setdefault(appt.application_id, []).append(appt)
+        for a in recent:
+            a.accepted_appts = appts_by_app.get(a.pk, [])
+
+    return render(request, "editorial/dashboard.html", {
+        "office": office,
+        "managed": managed,
+        "mng_counts": mng_counts,
+        "mng_pending": mng_pending,
+        "local_pending": local_pending,
+        "local_decided": local_decided,
+        "board_count": board_count,
+        "active_appointments": active_appointments,
+        "total_members": total_members,
+        "with_appointment": with_appointment,
+        "recent": recent,
+    })
+
+@office_only
+def journal_manage(request, pk: int):
+    # wisp 2026-10-02: journal CE management
+    """Office page to assign / remove Commissioning Editor for a journal."""
+    from django.utils import timezone
+    from apps.editorial.models import Appointment, Journal
+    from apps.identity.models import Member
+    journal = get_object_or_404(Journal, pk=pk)
+
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        if action == "assign":
+            email = (request.POST.get("email") or "").strip()
+            if not email:
+                messages.error(request, "Enter the member's email.")
+            else:
+                m = Member.objects.filter(email__iexact=email).first()
+                if not m:
+                    messages.error(request, f"No APID member with email {email}.")
+                else:
+                    exists = Appointment.objects.filter(
+                        member=m, journal=journal,
+                        role="Commissioning Editor",
+                        ended_on__isnull=True).exists()
+                    if exists:
+                        messages.info(request, f"{m.display_name} is already a CE on this journal.")
+                    else:
+                        Appointment.objects.create(
+                            member=m, journal=journal,
+                            role="Commissioning Editor",
+                            started_on=timezone.now().date())
+                        messages.success(request, f"{m.display_name} appointed as Commissioning Editor.")
+        elif action == "remove":
+            appt_id = request.POST.get("appointment_id")
+            try:
+                a = Appointment.objects.get(pk=int(appt_id), journal=journal,
+                                            role="Commissioning Editor",
+                                            ended_on__isnull=True)
+                a.ended_on = timezone.now().date()
+                a.save()
+                messages.success(request, f"Removed {a.member.display_name}.")
+            except (ValueError, Appointment.DoesNotExist):
+                messages.error(request, "Appointment not found.")
+        return redirect("journal-manage", pk=pk)
+
+    ces = (Appointment.objects.filter(
+        journal=journal, role="Commissioning Editor", ended_on__isnull=True)
+        .select_related("member", "member__profile"))
+    managers = (Appointment.objects.filter(
+        journal=journal,
+        role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
+        ended_on__isnull=True)
+        .select_related("member", "member__profile"))
+
+    return render(request, "editorial/journal_manage.html", {
+        "journal": journal,
+        "commissioning_editors": ces,
+        "managers": managers,
+    })
+
+
+@office_only
+def journals_index(request):
+    # wisp 2026-10-02: journal CE management
+    """Office page listing all journals with their CE count — gateway to manage pages."""
+    from django.db.models import Count, Q
+    from apps.editorial.models import Journal
+    q = (request.GET.get("q") or "").strip()
+    needs_ce = request.GET.get("needs_ce") == "1"
+    journals = Journal.objects.annotate(
+        ce_count=Count("appointments",
+            filter=Q(appointments__role="Commissioning Editor",
+                     appointments__ended_on__isnull=True)),
+        mgr_count=Count("appointments",
+            filter=Q(appointments__role__in=["Editor-in-Chief","Associate Editor-in-chief","Associate Editor-in-Chief"],
+                     appointments__ended_on__isnull=True)),
+    )
+    if q:
+        journals = journals.filter(title__icontains=q)
+    if needs_ce:
+        journals = journals.filter(ce_count=0)
+    journals = journals.order_by("ce_count", "title")
+    return render(request, "editorial/journals_index.html", {
+        "journals": journals,
+        "q": q,
+        "needs_ce": needs_ce,
+        "total": journals.count(),
+        "without_ce": sum(1 for j in journals if j.ce_count == 0),
+    })
+

@@ -1,0 +1,39 @@
+{% extends "profiles/base.html" %}
+{% block title %}Privacy Policy · APID{% endblock %}
+{% block style %}
+ .page-body { max-width:700px; }
+ .page-body h1 { font-size:24px; margin:0 0 6px; }
+ .page-body h2 { font-size:16px; margin:26px 0 8px; }
+ .page-body p, .page-body li { color:#2c3e50; line-height:1.7; margin:0 0 12px; font-size:15px; }
+ .page-body ul { padding-left:20px; }
+{% endblock %}
+{% block content %}
+<div class="page-body card">
+  <h1>Privacy Policy</h1>
+  <p class="muted small" style="margin:0 0 20px">Last updated: September 2026</p>
+
+  <h2>What we collect</h2>
+  <p>When you register, we collect your name, email address, institutional affiliation, country and password. You may optionally provide a profile photograph, ORCID iD, biography, department, designation, and a list of publications. All data you provide is voluntary beyond the name and email required to create an account.</p>
+
+  <h2>How we use it</h2>
+  <p>Your profile data is used to:</p>
+  <ul>
+    <li>Create and display your public APID profile page</li>
+    <li>Verify authorship and editorial appointments across STM Journals publications</li>
+    <li>Enable editors and publishers to contact potential reviewers and board members</li>
+    <li>Generate CVs, empanelment letters and editorial certificates on request</li>
+  </ul>
+
+  <h2>Who can see your data</h2>
+  <p>Your profile page (<code>/profiles/your-apid/</code>) is publicly accessible. Your email address is never displayed publicly and is not shared with third parties. Appointment and application records are accessible only to you and the CELNET editorial office.</p>
+
+  <h2>Data retention</h2>
+  <p>Your APID and profile are retained indefinitely — the identifier is permanent by design and may be cited in published papers. You may request deletion of personal details by contacting the editorial office; the APID itself and publication records associated with it are retained as part of the scholarly record.</p>
+
+  <h2>Cookies</h2>
+  <p>We use a session cookie to keep you signed in. No tracking or advertising cookies are used.</p>
+
+  <h2>Contact</h2>
+  <p>For privacy enquiries, write to <a href="mailto:editorial@stmjournals.com">editorial@stmjournals.com</a>.</p>
+</div>
+{% endblock %}

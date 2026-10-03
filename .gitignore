@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtualenv
+.venv/
+venv/
+env/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+collected_static/
+
+# Environments / secrets
+.env
+.env.*
+*.env
+.env.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Backups / scratch
+*.bak
+*.old
+*.orig
+*.tmp
+/tmp/
+backups/
+
+# OS
+Thumbs.db

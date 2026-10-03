@@ -1,0 +1,38 @@
+{% extends "profiles/base.html" %}
+{% block title %}About APID · Academic Profile Identity Directory{% endblock %}
+{% block style %}
+ .page-body { max-width:700px; }
+ .page-body h1 { font-size:26px; margin:0 0 8px; }
+ .page-body h2 { font-size:17px; margin:32px 0 10px; color:var(--ink); }
+ .page-body p { color:#2c3e50; line-height:1.7; margin:0 0 14px; }
+ .stat-row { display:flex; gap:32px; margin:28px 0; flex-wrap:wrap; }
+ .stat { text-align:center; }
+ .stat .n { font-size:32px; font-weight:700; color:var(--accent); }
+ .stat .l { font-size:13px; color:var(--muted); margin-top:2px; }
+{% endblock %}
+{% block content %}
+<div class="page-body card">
+  <h1>About APID</h1>
+  <p class="muted small" style="margin:0 0 20px">Academic Profile Identity Directory — a verified registry of researchers and editorial board members in the STM Journals ecosystem.</p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="n">{{ total }}</div><div class="l">Registered members</div></div>
+    <div class="stat"><div class="n">258+</div><div class="l">Journals served</div></div>
+    <div class="stat"><div class="n">50+</div><div class="l">Countries represented</div></div>
+  </div>
+
+  <h2>What is APID?</h2>
+  <p>APID is a permanent, portable identifier assigned to every researcher who publishes with or serves on the editorial board of a CELNET or STM Journals publication. It works like an ORCID for our ecosystem — a stable ID that travels with you across journals, roles and institutions.</p>
+
+  <h2>Why does it exist?</h2>
+  <p>Academic names are ambiguous. Two researchers can share a name; one researcher can publish under several name forms across a career. APID pins an unambiguous identity to a person so that author credits, editorial appointments, and review histories are correctly attributed and permanently accessible.</p>
+
+  <h2>What can I do with an APID?</h2>
+  <p>With an APID profile you can: maintain a verified record of your publications and editorial appointments; apply to serve on the editorial board of any journal in the STM Journals portfolio; download a verified CV and empanelment letters for your institution; and be discoverable by editors looking for reviewers in your area.</p>
+
+  <h2>Who runs this?</h2>
+  <p>APID is operated by <a href="https://stmjournals.celnet.in">STM Journals</a>, a division of Consortium e-Learning Network Pvt Ltd. STM Journals publishes peer-reviewed research across science, technology, medicine and the social sciences.</p>
+
+  <p style="margin-top:28px"><a href="/accounts/register/" class="btn-primary" style="padding:10px 22px;background:var(--accent);color:#fff;border-radius:8px;font-weight:600;font-size:15px">Create your APID →</a></p>
+</div>
+{% endblock %}

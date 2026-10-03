@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: A4; margin: 22mm 20mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; color: #1a1a1a; line-height: 1.55; }
+.header { border-bottom: 2px solid #1a3a6e; padding-bottom: 12px; margin-bottom: 18px; }
+h1 { font-size: 19pt; color: #1a1a1a; margin-bottom: 3px; }
+.sub { font-size: 10.5pt; color: #444; margin-bottom: 2px; }
+.ids { font-size: 9pt; color: #777; margin-top: 6px; font-family: 'Courier New', monospace; }
+h2 { font-size: 10pt; text-transform: uppercase; letter-spacing: .09em; color: #1a3a6e;
+     border-bottom: 1px solid #c5cfe0; margin: 16px 0 7px; padding-bottom: 3px; }
+p, .body { font-size: 10.5pt; color: #222; }
+.row { margin-bottom: 6px; font-size: 10.5pt; }
+.muted { color: #666; font-size: 9.5pt; }
+.pub { margin-bottom: 7px; }
+.pub-title { font-size: 10.5pt; }
+.pub-meta { font-size: 9pt; color: #666; margin-top: 1px; }
+.footer { font-size: 8.5pt; color: #aaa; border-top: 1px solid #e0e0e0; padding-top: 7px; margin-top: 30px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>{{ member.display_name }}</h1>
+  {% if profile %}
+    {% if profile.designation or profile.department %}
+      <div class="sub">{% if profile.designation %}{{ profile.designation }}{% endif %}{% if profile.department and profile.designation %}, {% endif %}{% if profile.department %}{{ profile.department }}{% endif %}</div>
+    {% endif %}
+    {% if profile.affiliation %}
+      <div class="sub">{{ profile.affiliation }}{% if profile.city or profile.country %} · {% if profile.city %}{{ profile.city }}, {% endif %}{{ profile.country }}{% endif %}</div>
+    {% endif %}
+  {% endif %}
+  <div class="ids">
+    APID {{ member.apid }}
+    {% if member.email %} · {{ member.email }}{% endif %}
+    {% if profile.orcid %} · ORCID {{ profile.orcid }}{% endif %}
+    {% if profile.google_scholar_id %} · Google Scholar: {{ profile.google_scholar_id }}{% endif %}
+  </div>
+</div>
+
+{% if profile.biography %}
+<h2>About</h2>
+<p class="body">{{ profile.biography }}</p>
+{% endif %}
+
+{% if profile %}
+  {% if profile.academic_qualification %}
+  <h2>Academic Qualifications</h2>
+  <div class="row">
+    {{ profile.academic_qualification }}{% if profile.academic_university %}, {{ profile.academic_university }}{% endif %}{% if profile.qualification_year %} ({{ profile.qualification_year }}){% endif %}
+  </div>
+  {% endif %}
+{% endif %}
+
+{% if profile.expertise or profile.areas_of_interest %}
+<h2>Research Expertise &amp; Areas of Interest</h2>
+<p class="body">{{ profile.expertise|default:profile.areas_of_interest }}</p>
+{% endif %}
+
+{% if appointments %}
+<h2>Current Editorial Appointments</h2>
+{% for a in appointments %}
+  <div class="row">
+    <strong>{{ a.role }}</strong> — <em>{{ a.journal.title }}</em>
+    {% if a.started_on %}<span class="muted">(since {{ a.started_on|date:"M Y" }})</span>{% endif %}
+  </div>
+{% endfor %}
+{% endif %}
+
+{% if publications %}
+<h2>Selected Publications (showing {{ publications|length }})</h2>
+{% for p in publications %}
+  <div class="pub">
+    <div class="pub-title">{{ p.title }}</div>
+    {% if p.journal or p.year or p.doi %}
+    <div class="pub-meta">
+      {% if p.journal %}{{ p.journal }}{% if p.year %}, {% endif %}{% endif %}{% if p.year %}{{ p.year }}{% endif %}{% if p.doi %} · DOI: {{ p.doi }}{% endif %}
+    </div>
+    {% endif %}
+  </div>
+{% endfor %}
+{% endif %}
+
+<div class="footer">
+  Generated from APID (Academic Profile &amp; Identity Directory) · apid.celnet.in · {{ today|date:"j F Y" }}
+</div>
+
+</body>
+</html>

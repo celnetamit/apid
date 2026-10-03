@@ -1,0 +1,20 @@
+ .field { margin:0 0 14px; }
+ label { display:block; font-weight:600; font-size:13px; margin:0 0 4px; }
+ input[type=text],input[type=url],input[type=file],textarea,select {
+   width:100%; padding:9px 11px; border:1px solid var(--line); border-radius:8px;
+   font:inherit; background:#fff; }
+ textarea { resize:vertical; }
+ .grid { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+ @media (max-width:640px){ .grid { grid-template-columns:1fr; } }
+ button, .btn { display:inline-block; padding:10px 16px; border:0; border-radius:8px;
+   background:var(--accent); color:#fff; font-size:15px; font-weight:600; cursor:pointer; }
+ .btn.quiet { background:#fff; color:var(--ink); border:1px solid var(--line); }
+ .btn.danger { background:#fff; color:#a3352b; border:1px solid #f0cdc9; }
+ .err { color:#a3352b; font-size:13px; margin-top:4px; }
+ .note { background:#eef6ee; border:1px solid #cfe4cf; color:#25532a; padding:10px 12px;
+   border-radius:8px; font-size:14px; margin-bottom:16px; }
+ h1 { font-size:21px; margin:0 0 16px; }
+ h2 { font-size:15px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted);
+      margin:26px 0 10px; }
+ .row { border-top:1px solid var(--line); padding:12px 0; }
+ .row:first-child { border-top:0; }

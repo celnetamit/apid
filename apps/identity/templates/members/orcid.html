@@ -1,0 +1,38 @@
+{% extends "profiles/base.html" %}
+{% block title %}From your ORCID · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .w { border-top:1px solid var(--line); padding:12px 0; display:flex; gap:10px; }
+ .w input { width:auto; margin-top:3px; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>From your ORCID record</h1>
+  <p class="muted small" style="margin-top:-10px">ORCID {{ orcid }} —
+    {{ found }} work{{ found|pluralize }} on the public record,
+    {{ already }} already on your profile.</p>
+
+  {% if unreachable %}
+    <p>Your ORCID record could not be read. It may be set to private, or ORCID may be
+      unreachable just now — nothing has changed either way.</p>
+  {% elif works %}
+    <p>Tick what is yours. Nothing is added until you do — an ORCID record carries
+      every deposit any publisher ever made against your iD, and some of them are the
+      same paper twice.</p>
+    <form method="post">{% csrf_token %}
+      {% for raw, w in works %}
+        <label class="w">
+          <input type="checkbox" name="work" value="{{ raw }}" checked>
+          <span><strong>{{ w.title }}</strong>
+            <div class="muted small">{{ w.journal }}{% if w.year %} · {{ w.year }}{% endif %}{% if w.doi %} · {{ w.doi }}{% endif %}</div>
+          </span>
+        </label>
+      {% endfor %}
+      <button type="submit" style="margin-top:16px">Add the ticked ones</button>
+      <a class="btn quiet" href="{% url 'publications' %}">Not now</a>
+    </form>
+  {% else %}
+    <p>Everything on your ORCID record is already on your profile.</p>
+    <p><a class="btn quiet" href="{% url 'publications' %}">Back</a></p>
+  {% endif %}
+</div>
+{% endblock %}

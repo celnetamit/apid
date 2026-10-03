@@ -1,0 +1,100 @@
+{% extends "profiles/base.html" %}
+{% block title %}Feed · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .composer textarea { min-height:72px; }
+ .post { border-top:1px solid var(--line); padding:16px 0; }
+ .post:first-child { border-top:0; }
+ .who { display:flex; gap:10px; align-items:center; }
+ .av { width:38px; height:38px; border-radius:50%; object-fit:cover; border:1px solid var(--line); }
+ .avph { width:38px; height:38px; border-radius:50%; background:#e9eef4; }
+ .body { margin:10px 0 0; white-space:pre-wrap; }
+ .acts { margin-top:10px; display:flex; gap:14px; align-items:center; font-size:14px; }
+ .acts form { display:inline; }
+ .acts button { background:none; border:0; padding:0; color:var(--accent); font:inherit;
+   cursor:pointer; }
+ .acts .on { color:#c0392b; font-weight:600; }
+ .cmt { margin:10px 0 0 48px; font-size:14px; border-left:2px solid var(--line);
+   padding-left:10px; }
+ .tabs { display:flex; gap:8px; margin-bottom:14px; }
+ .tab { padding:6px 13px; border:1px solid var(--line); border-radius:999px; font-size:14px;
+   background:#fff; color:var(--ink); }
+ .tab.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <form class="composer" method="post" action="{% url 'write' %}">{% csrf_token %}
+    <textarea name="body" placeholder="Looking for a co-author? Just published? Say it here."></textarea>
+    <button type="submit" style="margin-top:8px">Post</button>
+  </form>
+</div>
+
+{% if suggestions %}
+<div style="height:18px"></div>
+<div class="card">
+  <h2 style="margin:0 0 4px;font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)">People in your field</h2>
+  <p class="muted small" style="margin:0 0 10px">Matched on your own expertise, department and affiliation.</p>
+  {% for p in suggestions %}
+    <div class="post" style="display:flex;gap:10px;align-items:center;padding:10px 0">
+      {% if p.profile.picture %}<img class="av" src="{{ MEDIA_URL }}{{ p.profile.picture }}" alt="">
+      {% else %}<div class="avph"></div>{% endif %}
+      <div style="flex:1">
+        <a href="{% url 'profile' p.apid %}"><strong>{{ p.display_name }}</strong></a>
+        <div class="muted small">{{ p.profile.designation }}{% if p.profile.affiliation %} · {{ p.profile.affiliation }}{% endif %}</div>
+      </div>
+      <form method="post" action="{% url 'follow' p.apid %}">{% csrf_token %}
+        <input type="hidden" name="next" value="/feed/">
+        <button type="submit" class="btn" style="padding:5px 14px;font-size:13px">Follow</button>
+      </form>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div style="height:18px"></div>
+
+<div class="card">
+  <div class="tabs">
+    <a class="tab {% if which != 'following' %}on{% endif %}" href="?show=all">Everyone</a>
+    {% if following_count %}
+      <a class="tab {% if which == 'following' %}on{% endif %}" href="?show=following">People you follow ({{ following_count }})</a>
+    {% endif %}
+  </div>
+
+  {% for post in posts %}
+    <div class="post">
+      <div class="who">
+        {% if post.author.profile.picture %}
+          <img class="av" src="{{ MEDIA_URL }}{{ post.author.profile.picture }}" alt="">
+        {% else %}<div class="avph"></div>{% endif %}
+        <div>
+          <a href="{% url 'profile' post.author.apid %}"><strong>{{ post.author.display_name }}</strong></a>
+          <div class="muted small">{{ post.author.profile.affiliation|default:"" }}
+            · {{ post.created_at|date:"j M Y" }}</div>
+        </div>
+      </div>
+      <div class="body">{{ post.body }}</div>
+      <div class="acts">
+        <form method="post" action="{% url 'react' post.pk %}">{% csrf_token %}
+          <button type="submit" class="{% if post.reacted %}on{% endif %}">
+            ♥ {{ post.reaction_count }}</button></form>
+        <span class="muted">{{ post.comment_count }} comment{{ post.comment_count|pluralize }}</span>
+      </div>
+      {% for c in post.comments.all|slice:":3" %}
+        <div class="cmt"><strong>{{ c.author.display_name }}</strong> — {{ c.body }}</div>
+      {% endfor %}
+      <form method="post" action="{% url 'comment' post.pk %}" class="cmt">{% csrf_token %}
+        <input type="text" name="body" placeholder="Write a comment…">
+      </form>
+    </div>
+  {% empty %}
+    <p class="muted">Nothing here yet.
+      {% if which == 'following' %}The people you follow have not posted.{% endif %}</p>
+  {% endfor %}
+
+  {% if has_more %}
+    <p style="margin-top:16px"><a class="btn quiet"
+       href="?show={{ which }}&page={{ page|add:1 }}">Older posts</a></p>
+  {% endif %}
+</div>
+{% endblock %}

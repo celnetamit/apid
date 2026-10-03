@@ -1,0 +1,68 @@
+{% extends "profiles/base.html" %}
+{% block title %}Verify appointment · APID{% endblock %}
+{% block style %}
+ .verify { max-width: 560px; margin: 60px auto; padding: 32px 28px;
+           background: #fff; border-radius: 14px;
+           border: 1px solid var(--line); box-shadow: 0 6px 20px rgba(15,27,45,0.06); }
+ .vstamp { font-size:48px; line-height:1; margin-bottom:12px; }
+ .vstamp.good { color:#1e8e3e; }
+ .vstamp.past { color:#8a6b00; }
+ .vhead { font-size:20px; font-weight:700; margin:0 0 6px; color:var(--ink); }
+ .vsub { color:var(--muted); font-size:14px; margin:0 0 20px; }
+ .vcard { background:#f7f9fc; border:1px solid var(--line); border-radius:10px;
+          padding:18px 20px; margin-bottom:16px; }
+ .vcard h3 { font-size:18px; margin:0 0 4px; color:var(--ink); }
+ .vcard .apid { color:var(--muted); font-size:13px; font-family: monospace; }
+ .vcard .designation { font-size:14px; color:var(--muted); margin-top:4px; }
+ .fact { display:flex; justify-content:space-between; padding:8px 0;
+         border-bottom:1px dashed var(--line); font-size:14px; }
+ .fact:last-child { border-bottom:0; }
+ .fact .k { color:var(--muted); }
+ .fact .v { color:var(--ink); font-weight:500; text-align:right; }
+ .foot { font-size:12px; color:var(--muted); text-align:center; margin-top:16px;
+         line-height:1.5; }
+ .foot a { color:var(--primary); }
+{% endblock %}
+{% block content %}
+<div class="verify">
+  {% if is_current %}
+    <div class="vstamp good">&check;</div>
+    <h1 class="vhead">Verified editorial appointment</h1>
+    <p class="vsub">This appointment is currently active on the APID registry.</p>
+  {% else %}
+    <div class="vstamp past">&#9312;</div>
+    <h1 class="vhead">Appointment on record (ended)</h1>
+    <p class="vsub">This appointment is on the APID registry but is no longer active.</p>
+  {% endif %}
+
+  <div class="vcard">
+    <h3>
+      <a href="{% url 'profile' member.apid %}" style="color:var(--ink)">{{ member.display_name|default:member.username }}</a>
+    </h3>
+    <div class="apid">APID {{ member.apid }}</div>
+    {% if profile and profile.affiliation %}
+      <div class="designation">{% if profile.designation %}{{ profile.designation }}, {% endif %}{{ profile.affiliation }}</div>
+    {% elif profile and profile.designation %}
+      <div class="designation">{{ profile.designation }}</div>
+    {% endif %}
+  </div>
+
+  <div class="vcard">
+    <div class="fact"><span class="k">Journal</span><span class="v">{{ journal.title }}</span></div>
+    <div class="fact"><span class="k">Role</span><span class="v">{{ appointment.role|title }}</span></div>
+    {% if appointment.started_on %}
+      <div class="fact"><span class="k">Effective from</span><span class="v">{{ appointment.started_on|date:"j F Y" }}</span></div>
+    {% endif %}
+    {% if appointment.ended_on %}
+      <div class="fact"><span class="k">Ended on</span><span class="v">{{ appointment.ended_on|date:"j F Y" }}</span></div>
+    {% endif %}
+    <div class="fact"><span class="k">Appointment ID</span><span class="v" style="font-family:monospace">CELNET-EC-{{ appointment.pk }}</span></div>
+    <div class="fact"><span class="k">Verified at</span><span class="v">{{ today|date:"j F Y" }}</span></div>
+  </div>
+
+  <p class="foot">
+    Verified against the APID registry &middot; <strong>Consortium e-Learning Network Pvt Ltd</strong> (STM Journals imprint).<br>
+    Something looks wrong? Write to <a href="mailto:info@celnet.in">info@celnet.in</a>.
+  </p>
+</div>
+{% endblock %}

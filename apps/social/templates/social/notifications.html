@@ -1,0 +1,29 @@
+{% extends "profiles/base.html" %}
+{% block title %}Notifications · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .n { display:flex; gap:12px; align-items:flex-start; border-top:1px solid var(--line);
+      padding:13px 0; }
+ .n.new { background:#f4f8fd; margin:0 -12px; padding-left:12px; padding-right:12px; }
+ .av { width:36px; height:36px; border-radius:50%; object-fit:cover; border:1px solid var(--line); }
+ .avph { width:36px; height:36px; border-radius:50%; background:#e9eef4; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Notifications</h1>
+  {% for n in rows %}
+    <div class="n {% if not n.read_at %}new{% endif %}">
+      {% if n.actor.profile.picture %}
+        <img class="av" src="{{ MEDIA_URL }}{{ n.actor.profile.picture }}" alt="">
+      {% else %}<div class="avph"></div>{% endif %}
+      <div>
+        <a href="{% url 'profile' n.actor.apid %}"><strong>{{ n.actor.display_name }}</strong></a>
+        {{ n.get_kind_display }}{% if n.post %} — <span class="muted">{{ n.post.body|truncatechars:70 }}</span>{% endif %}
+        <div class="muted small">{{ n.created_at|date:"j M Y, H:i" }}</div>
+      </div>
+    </div>
+  {% empty %}
+    <p class="muted">Nothing yet. When somebody follows you or replies to a post, it
+      appears here.</p>
+  {% endfor %}
+</div>
+{% endblock %}

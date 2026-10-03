@@ -1,0 +1,38 @@
+{% extends "profiles/base.html" %}
+{% block title %}Search the APID registry{% endblock %}
+{% block style %}
+ form.search { display:flex; gap:10px; margin:0 0 20px; }
+ form.search input { flex:1; padding:11px 14px; border:1px solid var(--line);
+                     border-radius:8px; font-size:16px; }
+ form.search button { padding:11px 20px; border:0; border-radius:8px;
+                      background:var(--accent); color:#fff; font-size:15px; cursor:pointer; }
+ .hit { display:flex; gap:14px; padding:14px 0; border-bottom:1px solid var(--line); }
+ .hit img, .hit .ph { width:52px; height:52px; border-radius:6px; object-fit:cover;
+                      background:#eef2f6; border:1px solid var(--line); flex:none; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1 style="font-size:22px;margin:0 0 6px">Search the registry</h1>
+  <p class="muted small" style="margin-top:0">
+    {{ total }} members · {{ with_profiles }} with a completed profile.
+    Search by name, affiliation, department, expertise or ORCID.</p>
+  <form class="search" method="get">
+    <input name="q" value="{{ query }}" placeholder="e.g. polymer chemistry, or an ORCID" autofocus>
+    <button>Search</button>
+  </form>
+  {% if query %}
+    {% for p in results %}
+      <div class="hit">
+        {% if p.picture %}<img src="/media/{{ p.picture }}" alt="">{% else %}<div class="ph"></div>{% endif %}
+        <div>
+          <a href="/profiles/{{ p.member.apid }}/"><strong>{{ p.member.title }} {{ p.member.display_name }}</strong></a>
+          <div class="muted small">{{ p.designation }}{% if p.department %} · {{ p.department }}{% endif %}</div>
+          <div class="small">{{ p.affiliation }}</div>
+        </div>
+      </div>
+    {% empty %}
+      <p class="muted">Nothing matched “{{ query }}”.</p>
+    {% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

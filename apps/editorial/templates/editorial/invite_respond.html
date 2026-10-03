@@ -1,0 +1,54 @@
+{% extends "profiles/base.html" %}
+{% block title %}Editorial invitation · APID{% endblock %}
+{% block style %}
+ .card h1 { margin:0 0 6px; font-size:22px; }
+ .muted { color:var(--muted); }
+ .row { border-top:1px solid var(--line); padding:10px 0; }
+ button { padding:9px 20px; border-radius:8px; border:0; cursor:pointer; font-weight:600; }
+ button.accept { background:#065f46; color:#fff; }
+ button.decline { background:#e5e7eb; color:#374151; }
+ textarea { width:100%; min-height:80px; padding:8px; border:1px solid var(--line);
+            border-radius:6px; font-family:inherit; font-size:14px; }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div style="padding:10px 14px;border-radius:8px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a;margin-bottom:12px">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  {% if invitation %}
+    <h1>Editorial invitation</h1>
+    <p>You have been invited to serve on the editorial board of
+       <strong>{{ invitation.journal_title }}</strong> ({{ invitation.journal_code }})
+       as <strong>{{ invitation.role|title }}</strong>.</p>
+    {% if invitation.invited_by_name %}
+      <p class="muted small">Invited by {{ invitation.invited_by_name }}
+      {% if invitation.created_at %}on {{ invitation.created_at|slice:":10" }}{% endif %}.</p>
+    {% endif %}
+    {% if invitation.invite_note %}
+      <div class="row"><em>“{{ invitation.invite_note }}”</em></div>
+    {% endif %}
+
+    {% if invitation.status == "offered" %}
+    <form method="post" style="margin-top:20px">
+      {% csrf_token %}
+      <label class="muted small">Optional note back to the office:</label>
+      <textarea name="note"></textarea>
+      <div style="margin-top:12px;display:flex;gap:10px">
+        <button type="submit" name="response" value="accept" class="accept">Accept invitation</button>
+        <button type="submit" name="response" value="decline" class="decline">Decline</button>
+      </div>
+    </form>
+    {% else %}
+      <p class="muted small" style="margin-top:20px">
+        This invitation is already <strong>{{ invitation.status_display }}</strong>.
+      </p>
+    {% endif %}
+  {% else %}
+    <h1>Invitation link</h1>
+    <p class="muted">
+      This link either does not match any invitation on record, or the account
+      you are signed in with is not the address it was sent to. Sign in with
+      the email address the invitation was mailed to, or contact the editorial
+      office.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

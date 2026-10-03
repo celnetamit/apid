@@ -1,0 +1,83 @@
+{% extends "profiles/base.html" %}
+{% block title %}Join the registry · APID{% endblock %}
+{% block style %}
+ .auth { max-width:460px; margin:36px auto; }
+ label { display:block; font-weight:600; font-size:14px; margin:14px 0 4px; }
+ input[type=text],input[type=email],input[type=password] {
+   width:100%; padding:10px 12px; border:1px solid var(--line);
+   border-radius:8px; font-size:16px; font:inherit; background:#fff; }
+ input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px rgba(31,95,169,.12); }
+ .row2 { display:grid; grid-template-columns:1fr 1fr; gap:0 16px; }
+ @media(max-width:540px){ .row2 { grid-template-columns:1fr; } }
+ button[type=submit] { margin-top:20px; width:100%; padding:12px; border:0;
+   border-radius:8px; background:var(--accent); color:#fff; font-size:16px;
+   font-weight:600; cursor:pointer; }
+ button[type=submit]:hover { opacity:.92; }
+ .divider { display:flex; align-items:center; gap:10px; margin:18px 0;
+   color:var(--muted); font-size:13px; }
+ .divider:before,.divider:after { content:""; flex:1; height:1px; background:var(--line); }
+ .err-field { color:#a3352b; font-size:13px; margin-top:4px; }
+ .err-banner { background:#fdeceb; border:1px solid #f3c2bf; color:#8c2b23;
+   padding:10px 12px; border-radius:8px; font-size:14px; margin-bottom:14px; }
+ .help { color:var(--muted); font-size:12px; margin-top:3px; }
+{% endblock %}
+{% block content %}
+<div class="auth card">
+  <h1 style="font-size:20px;margin:0 0 4px">Create your APID</h1>
+  <p class="muted small" style="margin:0 0 18px">Your permanent identifier across CELNET
+    and STM Journals — goes on your papers and never changes.</p>
+
+  {% if form.non_field_errors %}
+    <div class="err-banner">{{ form.non_field_errors|join:" " }}</div>
+  {% endif %}
+
+  <form method="post" novalidate>{% csrf_token %}
+    {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+    <div class="row2">
+      <div>
+        <label for="{{ form.full_name.id_for_label }}">Full name <span style="color:#c0392b">*</span></label>
+        {{ form.full_name }}
+        {% if form.full_name.errors %}<div class="err-field">{{ form.full_name.errors|join:" " }}</div>{% endif %}
+      </div>
+      <div>
+        <label for="{{ form.title.id_for_label }}">Title</label>
+        {{ form.title }}
+        <div class="help">Prof., Dr., Mr., Ms. — optional</div>
+      </div>
+    </div>
+
+    <label for="{{ form.email.id_for_label }}">Email address <span style="color:#c0392b">*</span></label>
+    {{ form.email }}
+    {% if form.email.errors %}<div class="err-field">{{ form.email.errors|join:" " }}</div>{% endif %}
+
+    <label for="{{ form.affiliation.id_for_label }}">Affiliation</label>
+    {{ form.affiliation }}
+    <div class="help">Your university, institute or company</div>
+
+    <label for="{{ form.country.id_for_label }}">Country</label>
+    {{ form.country }}
+
+    <div class="row2">
+      <div>
+        <label for="{{ form.password.id_for_label }}">Password <span style="color:#c0392b">*</span></label>
+        {{ form.password }}
+        {% if form.password.errors %}<div class="err-field">{{ form.password.errors|join:" " }}</div>{% endif %}
+        <div class="help">Min. 8 characters</div>
+      </div>
+      <div>
+        <label for="{{ form.password_again.id_for_label }}">Confirm password <span style="color:#c0392b">*</span></label>
+        {{ form.password_again }}
+        {% if form.password_again.errors %}<div class="err-field">{{ form.password_again.errors|join:" " }}</div>{% endif %}
+      </div>
+    </div>
+
+    <button type="submit">Create my account</button>
+  </form>
+
+  <p class="small muted" style="margin-top:18px;text-align:center">
+    Already have an account?
+    <a href="{% url 'login' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Sign in</a>
+  </p>
+</div>
+{% endblock %}

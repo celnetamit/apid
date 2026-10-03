@@ -1,0 +1,84 @@
+{% extends "profiles/base.html" %}
+{% block title %}Approved profiles · APID office{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .wrap-pad { padding: 24px; }
+ .toolbar { display:flex; align-items:center; justify-content:space-between; gap:16px;
+            margin: 10px 0 20px; flex-wrap:wrap; }
+ .toolbar .counts { font-size:14px; color:var(--muted); }
+ .toolbar .search input { padding:8px 12px; border:1px solid var(--line); border-radius:8px;
+                         font-size:14px; width:280px; }
+ .toolbar .search button { padding:8px 14px; border-radius:8px; border:0;
+                           background:var(--primary); color:#fff; font-weight:600; }
+ .mcard { display:flex; align-items:flex-start; gap:14px; padding:14px 16px;
+          border:1px solid var(--line); border-radius:10px; background:#fff; margin-bottom:10px; }
+ .mcard .avatar { width:52px; height:52px; border-radius:50%; object-fit:cover;
+                  background:#eef2f6; border:1px solid var(--line); flex:none; }
+ .mcard .avatar.empty { display:flex; align-items:center; justify-content:center;
+                        font-size:20px; font-weight:700; color:#6b7a90; }
+ .mcard .m-name { font-size:16px; font-weight:600; margin:0 0 2px; }
+ .mcard .m-name a { color:var(--ink); }
+ .mcard .m-name a:hover { color:var(--primary); }
+ .mcard .m-meta { font-size:13px; color:var(--muted); }
+ .appts { margin-top:8px; display:flex; flex-direction:column; gap:4px; }
+ .appt { font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+ .appt .j { font-weight:500; }
+ .appt .r { color:var(--muted); font-size:12px; }
+ .appt .dl { font-size:12px; }
+ .appt .dl a { color:var(--primary); }
+{% endblock %}
+{% block content %}
+<div class="wrap-pad">
+  <h1 style="margin:0">Approved profiles</h1>
+  <p class="muted small" style="margin:4px 0 0">Every member with an active editorial appointment.
+    {% if not user_is_office %}Showing journals you manage.{% endif %}
+  </p>
+
+  <div class="toolbar">
+    <div class="counts">
+      <strong>{{ total_members }}</strong> member{{ total_members|pluralize }}
+      ·  <strong>{{ total_appointments }}</strong> active appointment{{ total_appointments|pluralize }}
+    </div>
+    <form class="search" method="get">
+      <input type="text" name="q" value="{{ query }}" placeholder="Name, email, journal or role">
+      <button type="submit">Search</button>
+    </form>
+  </div>
+
+  {% for row in rows %}
+    <div class="mcard">
+      {% if row.profile and row.profile.picture %}
+        <img class="avatar" src="/media/{{ row.profile.picture }}" alt="{{ row.member.display_name }}">
+      {% else %}
+        <div class="avatar empty">{{ row.member.display_name|slice:":1"|upper }}</div>
+      {% endif %}
+      <div style="flex:1">
+        <p class="m-name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name|default:row.member.username }}</a>
+          <span class="muted small" style="font-weight:400"> · APID {{ row.member.apid }}</span></p>
+        <div class="m-meta">
+          {% if row.profile.designation %}{{ row.profile.designation }}{% endif %}
+          {% if row.profile.designation and row.profile.affiliation %} · {% endif %}
+          {% if row.profile.affiliation %}{{ row.profile.affiliation }}{% endif %}
+          {% if row.profile.country %} · {{ row.profile.country }}{% endif %}
+        </div>
+        <div class="appts">
+          {% for a in row.appointments %}
+            <div class="appt">
+              <span class="j">{{ a.journal.title }}</span>
+              <span class="r">— {{ a.role }} {% if a.started_on %}· since {{ a.started_on|date:"M Y" }}{% endif %}</span>
+              <span class="dl">
+                <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
+                &middot; <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
+              </span>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% empty %}
+    <div class="empty">
+      {% if query %}No matches for "{{ query }}". <a href="{% url 'approved-profiles' %}">Clear search</a>.
+      {% else %}No active appointments.{% endif %}
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

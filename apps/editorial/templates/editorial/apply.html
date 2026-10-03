@@ -1,0 +1,88 @@
+{% extends "profiles/base.html" %}
+{% block title %}Apply to an editorial board · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .known { background:#f4f8fd; border:1px solid #d6e4f5; border-radius:8px; padding:14px 16px;
+          font-size:14px; margin-bottom:18px; }
+ .known dt { display:inline; font-weight:600; }
+ .known dd { display:inline; margin:0 14px 0 4px; }
+ .pick { max-height:300px; overflow:auto; border:1px solid var(--line); border-radius:8px;
+         padding:10px 12px; }
+ .pick label { font-weight:400; font-size:14px; display:flex; gap:8px; align-items:center;
+               margin:6px 0; }
+ .pick input[type=checkbox] { width:auto; }
+ .pick select { width:auto; font-size:13px; padding:3px 6px; }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <h1>Apply to an editorial board</h1>
+  <p class="muted small" style="margin-top:-10px">The editorial office answers this on
+    the editorial platform. Most of it is already filled in from your profile.</p>
+
+  <div class="known">
+    <dl style="margin:0">
+      <dt>Name</dt><dd>{{ known.full_name }}</dd>
+      <dt>Email</dt><dd>{{ known.email }}</dd>
+      {% if known.orcid %}<dt>ORCID</dt><dd>{{ known.orcid }}</dd>{% endif %}
+      {% if known.highest_degree %}<dt>Degree</dt><dd>{{ known.highest_degree }}</dd>{% endif %}
+      <dt>Publications on record</dt><dd><strong>{{ known.publications }}</strong></dd>
+    </dl>
+    {% if known.prior_board_service %}
+      <div style="margin-top:8px"><strong>Already serving:</strong>
+        <div class="muted" style="white-space:pre-wrap">{{ known.prior_board_service }}</div></div>
+    {% endif %}
+    <div class="muted small" style="margin-top:8px">Wrong? <a href="{% url 'edit-profile' %}">Edit your profile</a> and it changes everywhere.</div>
+  </div>
+
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    <div class="grid">
+      {# Required on the editorial platform, so required here. A field the office
+         insists on and the screen does not ask for is not a validation rule — it is a
+         refusal the applicant cannot read and cannot fix. 8,740 of the 13,412 members
+         have no phone number stored, so for two in three this box starts empty and the
+         form would otherwise have posted straight into a 400. #}
+      <div class="field"><label>Phone <span class="muted">(required)</span></label>
+        <input type="text" name="phone" value="{{ known.phone }}" required></div>
+      <div class="field"><label>Affiliation <span class="muted">(required)</span></label>
+        <input type="text" name="affiliation" value="{{ known.affiliation }}" required></div>
+      <div class="field"><label>Designation</label>
+        <input type="text" name="designation" value="{{ known.designation }}"></div>
+      <div class="field"><label>Department</label>
+        <input type="text" name="department" value="{{ known.department }}"></div>
+    </div>
+
+    <div class="field">
+      <label>Which journals, and in what role</label>
+      <div class="pick">
+        {% for j in journals %}
+          <label>
+            <input type="checkbox" name="journal" value="{{ j.title }}|associate"
+                   onchange="this.value=this.value.split('|')[0]+'|'+this.nextElementSibling.nextElementSibling.value">
+            <span style="flex:1">{{ j.title }}</span>
+            <select onchange="this.parentElement.querySelector('input').value='{{ j.title }}|'+this.value">
+              {% for value, label in roles %}<option value="{{ value }}">{{ label }}</option>{% endfor %}
+            </select>
+          </label>
+        {% endfor %}
+      </div>
+      <p class="muted small" style="margin:6px 0 0">Up to eleven.</p>
+    </div>
+
+    <div class="field">
+      <label>Why — in your own words</label>
+      <textarea name="statement" rows="6" placeholder="What you would bring to the board, and what you work on."></textarea>
+      <p class="muted small" style="margin:6px 0 0">The one part the registry cannot
+        answer for you.</p>
+    </div>
+
+    <div class="field">
+      <label>CV / Resume <span class="muted">(optional)</span></label>
+      <input type="file" name="cv" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document">
+      <p class="muted small" style="margin:6px 0 0">PDF, DOC or DOCX. Up to 5 MB.</p>
+    </div>
+
+    <button type="submit">Send to the editorial office</button>
+    <a class="btn quiet" href="{% url 'dashboard' %}">Not now</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,171 @@
+{% extends "profiles/base.html" %}
+{% block title %}{{ app.name|default:"Application" }} — application · APID{% endblock %}
+{% block style %}
+ .head { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+ .avatar { width:96px; height:96px; border-radius:8px; object-fit:cover;
+           border:1px solid var(--line); background:#eef2f6; flex:none; }
+ .head .who { flex:1; min-width:220px; }
+ h1 { font-size:22px; margin:0 0 4px; }
+ dl.facts { display:grid; grid-template-columns:160px 1fr; gap:6px 16px; margin:16px 0; }
+ dl.facts dt { color:var(--muted); font-size:13px; }
+ dl.facts dd { margin:0; font-size:14px; word-break:break-word; }
+ h2 { font-size:16px; margin:22px 0 10px; }
+ .choice { border:1px solid var(--line); border-radius:10px; padding:16px;
+           margin-bottom:12px; background:#fff; }
+ .choice.decided-accept  { border-left:4px solid #059669; }
+ .choice.decided-decline { border-left:4px solid #dc2626; }
+ .choice.decided-pending { border-left:4px solid #f59e0b; }
+ .choice-head { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+ .choice-head .title { flex:1; min-width:200px; font-size:15px; font-weight:700; }
+ .choice-head .pref { color:var(--muted); font-weight:500; font-size:13px; margin-right:6px; }
+ .badge { display:inline-block; font-size:11px; padding:3px 10px; border-radius:999px;
+          font-weight:600; letter-spacing:.02em; }
+ .badge.warn  { background:#fef3c7; color:#78350f; }
+ .badge.info  { background:#dbeafe; color:#1e3a8a; }
+ .badge.good  { background:#d1fae5; color:#064e3b; }
+ .badge.muted { background:#e5e7eb; color:#374151; }
+ .choice .meta { color:var(--muted); font-size:13px; margin-top:6px; }
+ .choice-form { margin-top:12px; padding-top:12px; border-top:1px dashed var(--line); }
+ .choice-form .row { margin-bottom:10px; }
+ .choice-form label { font-weight:600; font-size:13px; display:block; margin-bottom:5px; color:var(--ink); }
+ .choice-form input, .choice-form textarea {
+   width:100%; padding:8px 12px; border:1px solid var(--line); border-radius:8px;
+   font-family:inherit; font-size:14px; background:#fff; }
+ .choice-form .decide-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:4px; }
+ .choice-form button { padding:9px 18px; border-radius:8px; font-weight:600;
+                       border:0; cursor:pointer; font-size:13px; color:#fff; }
+ .btn-accept   { background:#059669; }
+ .btn-accept:hover   { background:#047857; }
+ .btn-decline  { background:#dc2626; }
+ .btn-decline:hover  { background:#b91c1c; }
+ .btn-withdraw { background:transparent !important; color:var(--muted) !important; border:1px solid var(--line) !important; font-weight:500 !important; }
+ .no-permission { color:var(--muted); font-size:13px; margin-top:10px; font-style:italic; }
+ .note-banner { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px;
+                padding:10px 14px; margin-bottom:16px; color:#1e3a8a; font-size:13px; }
+ @media (max-width:600px) {
+   dl.facts { grid-template-columns:1fr; gap:2px 0; }
+   dl.facts dt { margin-top:10px; }
+   .choice-form .decide-actions button { flex:1; min-width:100px; }
+ }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note-banner">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <div class="head">
+    {% if profile.picture %}
+      <img class="avatar" src="/media/{{ profile.picture }}" alt="{{ app.name }}">
+    {% else %}
+      <div class="avatar"></div>
+    {% endif %}
+    <div class="who">
+      <h1>{{ app.name|default:"(no name on record)" }}</h1>
+      {% if app.stated_designation or app.stated_department %}
+        <div class="muted">
+          {{ app.stated_designation }}{% if app.stated_designation and app.stated_department %} · {% endif %}{{ app.stated_department }}
+        </div>
+      {% endif %}
+      {% if app.stated_affiliation %}<div>{{ app.stated_affiliation }}</div>{% endif %}
+      {% if app.email %}<div class="muted small" style="margin-top:6px">{{ app.email }}</div>{% endif %}
+    </div>
+  </div>
+
+  <dl class="facts">
+    {% if app.applying_for %}<dt>Applying for</dt><dd>{{ app.applying_for }}</dd>{% endif %}
+    {% if app.subject %}<dt>Subject</dt><dd>{{ app.subject }}</dd>{% endif %}
+    {% if app.applied_at %}<dt>Applied</dt><dd>{{ app.applied_at|date:"d M Y" }}</dd>{% endif %}
+    <dt>Overall status</dt>
+    <dd>
+      <span class="badge {% if app.status == 'pending' %}warn{% elif app.status == 'accepted' %}good{% elif app.status == 'declined' %}muted{% else %}info{% endif %}">{{ app.status_display }}</span>
+      <span class="muted small" style="margin-left:4px">(derived from per-journal decisions below)</span>
+    </dd>
+  </dl>
+
+  {% if app.statement %}
+    <h2>Statement</h2>
+    <p style="white-space:pre-wrap;margin:0">{{ app.statement }}</p>
+  {% endif %}
+
+  {% if app.cv_url %}
+    <h2>CV / Resume</h2>
+    <p style="margin:0"><a href="{{ app.cv_url }}" target="_blank" rel="noopener">
+      &darr; Download {{ app.cv_name }}</a></p>
+  {% endif %}
+
+  <h2>Journal choices ({{ choices|length }})</h2>
+  <p class="muted small" style="margin-top:-6px">
+    Each choice is decided independently by that journal's manager or Commissioning Editor.
+    The office may decide any of them.
+  </p>
+
+  {% for c in choices %}
+    <div class="choice decided-{% if c.status == 'pending' %}pending{% elif c.status == 'accepted' %}accept{% else %}decline{% endif %}">
+      <div class="choice-head">
+        <div class="title">
+          <span class="pref">#{{ c.preference }}</span>
+          {{ c.journal_title }}
+        </div>
+        <span class="badge {{ c.state_tone }}">{{ c.state_label }}</span>
+      </div>
+
+      {% if c.decided_at %}
+        <div class="meta">
+          Decided {{ c.decided_at|date:"d M Y H:i" }}{% if c.decided_by_name %} by {{ c.decided_by_name }}{% endif %}
+          {% if c.role_appointed and c.status == "accepted" %} · appointed as <strong>{{ c.role_appointed }}</strong>{% endif %}
+        </div>
+        {% if c.note %}<div class="meta" style="white-space:pre-wrap;margin-top:4px">“{{ c.note }}”</div>{% endif %}
+        {% if c.appointment_id %}
+          <div class="meta" style="margin-top:8px;display:flex;gap:14px;flex-wrap:wrap">
+            <a href="{% url 'editorial-certificate' c.appointment_id %}" target="_blank" rel="noopener"
+               style="font-weight:500">📄 Certificate (PDF)</a>
+            <a href="{% url 'empanelment-letter' c.appointment_id %}" target="_blank" rel="noopener"
+               style="font-weight:500">📄 Empanelment letter (PDF)</a>
+          </div>
+        {% endif %}
+      {% endif %}
+
+      {% if c.status == "pending" %}
+        {% if c.can_decide %}
+          <form method="post" action="/office/application/{{ app.id }}/decide/" class="choice-form">
+            {% csrf_token %}
+            <input type="hidden" name="choice_id" value="{{ c.choice_id }}">
+            <div class="row">
+              <label>Role on appointment (used only if accepted)</label>
+              <input type="text" name="role" value="{{ c.role_appointed|default:app.applying_for|default:'Reviewer' }}">
+            </div>
+            <div class="row">
+              <label>Decision note (optional)</label>
+              <textarea name="note" rows="2"></textarea>
+            </div>
+            <div class="decide-actions">
+              <button type="submit" name="action" value="accept" class="btn-accept">✓ Accept</button>
+              <button type="submit" name="action" value="decline" class="btn-decline">✗ Decline</button>
+              <button type="submit" name="action" value="withdraw" class="btn-withdraw">Withdraw</button>
+            </div>
+          </form>
+        {% else %}
+          <div class="no-permission">
+            Only {% if c.journal_id %}this journal's manager / Commissioning Editor or the editorial office{% else %}the editorial office (this choice has no linked journal yet){% endif %} can decide this one.
+          </div>
+        {% endif %}
+      {% endif %}
+    </div>
+  {% endfor %}
+
+  {% if member %}
+    {% if appointments %}
+      <h2>Current appointments</h2>
+      <ul style="margin:0;padding-left:20px">{% for a in appointments %}
+        <li>{{ a.journal.title }} — {{ a.role }}
+          {% if a.started_on %}(since {{ a.started_on|date:"M Y" }}){% endif %}</li>
+      {% endfor %}</ul>
+    {% endif %}
+    {% if publications %}
+      <h2>Publications on record ({{ publications|length }})</h2>
+      <ol style="margin:0;padding-left:20px">{% for p in publications %}
+        <li>{% if p.link %}<a href="{{ p.link }}" target="_blank" rel="noopener">{{ p.title }}</a>
+            {% else %}{{ p.title }}{% endif %}</li>
+      {% endfor %}</ol>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

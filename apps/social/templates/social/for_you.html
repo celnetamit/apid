@@ -1,0 +1,55 @@
+{% extends "profiles/base.html" %}
+{% block title %}For you · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .row { display:flex; gap:12px; align-items:center; border-top:1px solid var(--line);
+        padding:13px 0; }
+ .av { width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid var(--line); }
+ .avph { width:42px; height:42px; border-radius:50%; background:#e9eef4; }
+ .why { font-size:12px; color:var(--muted); }
+ .why b { color:var(--ink); font-weight:600; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>People working on what you work on</h1>
+  <p class="muted small" style="margin-top:-10px">Matched on your own words — your
+    expertise, your department and the titles of your own publications.</p>
+  {% for row in people %}
+    <div class="row">
+      {% if row.other.profile.picture %}
+        <img class="av" src="{{ MEDIA_URL }}{{ row.other.profile.picture }}" alt="">
+      {% else %}<div class="avph"></div>{% endif %}
+      <div style="flex:1">
+        <a href="{% url 'profile' row.other.apid %}"><strong>{{ row.other.display_name }}</strong></a>
+        <div class="muted small">{{ row.other.profile.designation }}{% if row.other.profile.affiliation %} · {{ row.other.profile.affiliation }}{% endif %}</div>
+        {% if row.because %}<div class="why">you both write about <b>{{ row.because }}</b></div>{% endif %}
+      </div>
+      <form method="post" action="{% url 'follow' row.other.apid %}">{% csrf_token %}
+        <input type="hidden" name="next" value="/for-you/">
+        <button type="submit" class="btn" style="padding:5px 14px;font-size:13px">Follow</button>
+      </form>
+    </div>
+  {% empty %}
+    <p class="muted">Nothing yet — add your expertise or a publication to your profile
+      and this fills in.</p>
+  {% endfor %}
+</div>
+
+{% if journals %}
+<div style="height:18px"></div>
+<div class="card">
+  <h1>Journals your work fits</h1>
+  <p class="muted small" style="margin-top:-10px">From the same words, matched against
+    the portfolio's 278 journals. A suggestion, not a decision — the editor's answer is
+    the one that counts.</p>
+  {% for row in journals %}
+    <div class="row">
+      <div style="flex:1">
+        <strong>{{ row.journal.title }}</strong>
+        <div class="muted small">{{ row.journal.subject }}</div>
+        {% if row.because %}<div class="why">matched on <b>{{ row.because }}</b></div>{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

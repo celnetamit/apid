@@ -1,0 +1,13 @@
+{% extends "profiles/base.html" %}
+{% block title %}Remove a publication · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Remove this publication?</h1>
+  <p>{{ publication.title }}</p>
+  <form method="post">{% csrf_token %}
+    <button class="btn danger" type="submit">Remove it</button>
+    <a class="btn quiet" href="{% url 'publications' %}">Keep it</a>
+  </form>
+</div>
+{% endblock %}

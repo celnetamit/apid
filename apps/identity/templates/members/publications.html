@@ -1,0 +1,24 @@
+{% extends "profiles/base.html" %}
+{% block title %}Your publications · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <h1>Your publications</h1>
+  {% for p in publications %}
+    <div class="row">
+      <div>{{ p.title }}</div>
+      <div class="muted small">{{ p.journal }}{% if p.year %} · {{ p.year }}{% endif %}{% if p.doi %} · {{ p.doi }}{% endif %}</div>
+      <div class="small" style="margin-top:6px">
+        <a href="{% url 'edit-publication' p.pk %}">Edit</a> ·
+        <a href="{% url 'delete-publication' p.pk %}">Remove</a>
+        {% if p.link %} · <a href="{{ p.link }}" rel="noopener">Open</a>{% endif %}
+      </div>
+    </div>
+  {% empty %}<p class="muted small">Nothing recorded yet.</p>{% endfor %}
+  <p style="margin-top:18px">
+    <a class="btn" href="{% url 'add-publication' %}">Add a publication</a>
+    <a class="btn quiet" href="{% url 'orcid-sync' %}">Fetch from my ORCID</a>
+    <a class="btn quiet" href="{% url 'dashboard' %}">Back</a></p>
+</div>
+{% endblock %}

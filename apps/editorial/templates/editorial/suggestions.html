@@ -1,0 +1,73 @@
+{% extends "profiles/base.html" %}
+{% block title %}Suggested candidates · APID{% endblock %}
+{% block style %}
+ .pickform { display:grid; grid-template-columns:1fr 200px 130px; gap:10px; margin-bottom:20px; }
+ .pickform select, .pickform button { padding:8px; font-size:14px; }
+ .cand { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px;
+         display:grid; grid-template-columns:1fr 200px; gap:14px; align-items:start; }
+ .why { color:var(--accent); font-size:13px; margin-top:4px; }
+ .score { font-size:20px; font-weight:700; color:var(--accent); text-align:right; }
+ .invite-btn { padding:8px 16px; background:var(--accent); color:#fff; border-radius:6px;
+               text-decoration:none; font-weight:600; font-size:13px; display:inline-block;
+               margin-top:6px; }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <h1>Suggested candidates</h1>
+  <p class="muted small" style="margin:0 0 16px">
+    Ranked by how well their APID profile matches a journal's scope. Send an
+    invitation with one click; the person's own decision goes back to the
+    editorial-office queue.
+  </p>
+
+  <form method="get" class="pickform">
+    <select name="journal" onchange="this.form.submit()">
+      <option value="">— pick a journal —</option>
+      {% for j in journals %}
+        <option value="{{ j.abbreviation }}" {% if picked.abbreviation == j.abbreviation %}selected{% endif %}>
+          {{ j.abbreviation }} — {{ j.title }}
+        </option>
+      {% endfor %}
+    </select>
+    <select name="role" onchange="this.form.submit()">
+      <option value="eic"        {% if role == 'eic' %}selected{% endif %}>Editor-in-Chief</option>
+      <option value="deputy"     {% if role == 'deputy' %}selected{% endif %}>Deputy Editor</option>
+      <option value="associate"  {% if role == 'associate' %}selected{% endif %}>Associate Editor</option>
+      <option value="section"    {% if role == 'section' %}selected{% endif %}>Section Editor</option>
+      <option value="guest"      {% if role == 'guest' %}selected{% endif %}>Guest Editor</option>
+      <option value="reviewer"   {% if role == 'reviewer' %}selected{% endif %}>Reviewer</option>
+    </select>
+    <button type="submit">Refresh</button>
+  </form>
+
+  {% if picked %}
+    <h2>Top matches for {{ picked.abbreviation }} — {{ picked.title }}</h2>
+    {% if candidates %}
+      {% for c in candidates %}
+        <div class="cand">
+          <div>
+            <a href="{% url 'profile' c.apid %}"><strong>{{ c.name }}</strong></a>
+            <span class="muted small">· APID {{ c.apid }}</span>
+            {% if c.country %}<span class="muted small">· {{ c.country|title }}</span>{% endif %}
+            {% if c.affiliation %}
+              <div class="muted small">{{ c.affiliation|truncatechars:120 }}</div>
+            {% endif %}
+            <div class="why">{{ c.why }}</div>
+            <form method="post" action="{% url 'invite-from-profile' c.apid %}" style="margin-top:8px">
+              {% csrf_token %}
+              <input type="hidden" name="journal_code" value="{{ picked.abbreviation }}">
+              <input type="hidden" name="role" value="{{ role }}">
+              <input type="hidden" name="note" value="Suggested for {{ picked.abbreviation }} based on your profile match.">
+              <button type="submit" class="invite-btn">Invite as {{ role|title }}</button>
+            </form>
+          </div>
+          <div class="score">{{ c.score }}</div>
+        </div>
+      {% endfor %}
+    {% else %}
+      <p class="muted">No candidates above the noise floor. Try a different journal or role.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

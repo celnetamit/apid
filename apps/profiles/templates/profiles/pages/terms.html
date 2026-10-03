@@ -1,0 +1,38 @@
+{% extends "profiles/base.html" %}
+{% block title %}Terms of Use · APID{% endblock %}
+{% block style %}
+ .page-body { max-width:700px; }
+ .page-body h1 { font-size:24px; margin:0 0 6px; }
+ .page-body h2 { font-size:16px; margin:26px 0 8px; }
+ .page-body p, .page-body li { color:#2c3e50; line-height:1.7; margin:0 0 12px; font-size:15px; }
+ .page-body ul { padding-left:20px; }
+{% endblock %}
+{% block content %}
+<div class="page-body card">
+  <h1>Terms of Use</h1>
+  <p class="muted small" style="margin:0 0 20px">Last updated: September 2026</p>
+
+  <h2>Your account</h2>
+  <p>You are responsible for maintaining the confidentiality of your password and for all activity under your account. You must provide accurate information when registering. Impersonating another person or institution is prohibited.</p>
+
+  <h2>Your profile</h2>
+  <p>By submitting content to your profile (photograph, biography, publications list) you confirm that you have the right to share it, that it is accurate, and that you grant CELNET a non-exclusive licence to display it on this platform and in associated publications.</p>
+
+  <h2>Editorial applications</h2>
+  <p>Applying to serve on an editorial board is a formal expression of interest. Acceptance is at the sole discretion of the editorial office of the relevant journal. An application does not constitute a guarantee of appointment.</p>
+
+  <h2>Prohibited use</h2>
+  <ul>
+    <li>Registering on behalf of another person without their knowledge</li>
+    <li>Submitting false credentials or fabricated publication records</li>
+    <li>Using automated tools to scrape or mass-download profile data</li>
+    <li>Any use that violates applicable law or the publishing ethics standards of STM Journals</li>
+  </ul>
+
+  <h2>Termination</h2>
+  <p>CELNET reserves the right to suspend or terminate any account found to be in violation of these terms. The APID identifier is permanent and will remain in the scholarly record even if an account is suspended.</p>
+
+  <h2>Governing law</h2>
+  <p>These terms are governed by the laws of India. Any disputes shall be subject to the jurisdiction of courts in Delhi.</p>
+</div>
+{% endblock %}

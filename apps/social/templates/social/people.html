@@ -1,0 +1,20 @@
+{% extends "profiles/base.html" %}
+{% block title %}{{ heading }} · {{ member.display_name }}{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .p { display:flex; gap:12px; align-items:center; border-top:1px solid var(--line); padding:12px 0; }
+ .av { width:42px; height:42px; border-radius:50%; object-fit:cover; border:1px solid var(--line); }
+ .avph { width:42px; height:42px; border-radius:50%; background:#e9eef4; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{{ heading }} — {{ member.display_name }}</h1>
+  {% for p in people %}
+    <div class="p">
+      {% if p.profile.picture %}<img class="av" src="{{ MEDIA_URL }}{{ p.profile.picture }}" alt="">
+      {% else %}<div class="avph"></div>{% endif %}
+      <div><a href="{% url 'profile' p.apid %}">{{ p.display_name }}</a>
+        <div class="muted small">{{ p.profile.affiliation|default:"" }}</div></div>
+    </div>
+  {% empty %}<p class="muted">Nobody yet.</p>{% endfor %}
+</div>
+{% endblock %}

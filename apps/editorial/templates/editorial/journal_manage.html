@@ -1,0 +1,102 @@
+{% extends "profiles/base.html" %}
+{% block title %}{{ journal.title }} — Manage · APID Office{% endblock %}
+{% block style %}
+ .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
+ .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; letter-spacing:-0.02em; }
+ .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
+ .page-head .crumb a { color:#dbeafe; }
+ .page-head p { color:#cbd5e1; margin:0; font-size:14px; }
+ .mgr-list { background:#fff; border:1px solid var(--line); border-radius:10px; margin-bottom:20px; overflow:hidden; }
+ .mgr-list .row { display:flex; align-items:center; gap:14px; padding:14px 20px; border-top:1px solid var(--line); }
+ .mgr-list .row:first-child { border-top:0; }
+ .mgr-list .av { width:40px; height:40px; border-radius:50%; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; overflow:hidden; }
+ .mgr-list .av img { width:100%; height:100%; object-fit:cover; }
+ .mgr-list .who { flex:1; min-width:0; }
+ .mgr-list .name { font-weight:600; font-size:14px; }
+ .mgr-list .meta { color:var(--muted); font-size:12px; }
+ .mgr-list .role-pill { font-size:11px; text-transform:uppercase; letter-spacing:0.04em; font-weight:700; padding:3px 10px; border-radius:999px; }
+ .role-pill.ce { background:#fff4de; color:#8a5a06; }
+ .role-pill.eic { background:#e3f2fd; color:#1565c0; }
+ .mgr-list form { display:inline; }
+ .mgr-list .remove { background:transparent; color:var(--danger); border:1px solid #fecaca; padding:5px 10px; font-size:12px; border-radius:6px; cursor:pointer; }
+ .mgr-list .remove:hover { background:#fee2e2; }
+ .empty-msg { padding:20px; text-align:center; color:var(--muted); font-size:14px; }
+ .assign-box { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px 20px; }
+ .assign-box h3 { font-size:14px; margin:0 0 10px; font-weight:700; }
+ .assign-box label { font-size:13px; color:var(--muted); display:block; margin-bottom:4px; }
+ .assign-box .row { display:flex; gap:10px; }
+ .assign-box input { flex:1; }
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="/office/">Office</a> · <a href="/office/journals/">Journals</a> · Manage</div>
+    <h1>{{ journal.title }}</h1>
+    <p>{% if journal.subject %}{{ journal.subject }} · {% endif %}Commissioning Editors decide applications for this journal. Journal managers (EIC) too.</p>
+  </div>
+</div>
+<div class="wrap">
+
+{% if messages %}{% for m in messages %}<div class="card" style="margin-bottom:14px;padding:12px 18px">{{ m }}</div>{% endfor %}{% endif %}
+
+<h2 style="font-size:16px;margin:0 0 10px">Commissioning Editors ({{ commissioning_editors|length }})</h2>
+<div class="mgr-list">
+  {% for a in commissioning_editors %}
+    <div class="row">
+      {% if a.member.profile.picture %}
+        <div class="av"><img src="/media/{{ a.member.profile.picture }}" alt=""></div>
+      {% else %}
+        <div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>
+      {% endif %}
+      <div class="who">
+        <div class="name">{{ a.member.display_name }}</div>
+        <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}{% if a.started_on %} · Since {{ a.started_on|date:"M Y" }}{% endif %}</div>
+      </div>
+      <span class="role-pill ce">Commissioning Editor</span>
+      <form method="post" onsubmit="return confirm('Remove this CE from the journal?')">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="remove">
+        <input type="hidden" name="appointment_id" value="{{ a.id }}">
+        <button type="submit" class="remove">Remove</button>
+      </form>
+    </div>
+  {% empty %}
+    <div class="empty-msg">No commissioning editor assigned yet. Add one below.</div>
+  {% endfor %}
+</div>
+
+<h2 style="font-size:16px;margin:28px 0 10px">Journal managers ({{ managers|length }})</h2>
+<div class="mgr-list">
+  {% for a in managers %}
+    <div class="row">
+      {% if a.member.profile.picture %}
+        <div class="av"><img src="/media/{{ a.member.profile.picture }}" alt=""></div>
+      {% else %}
+        <div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>
+      {% endif %}
+      <div class="who">
+        <div class="name">{{ a.member.display_name }}</div>
+        <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}{% if a.started_on %} · Since {{ a.started_on|date:"M Y" }}{% endif %}</div>
+      </div>
+      <span class="role-pill eic">{{ a.role }}</span>
+    </div>
+  {% empty %}
+    <div class="empty-msg">No active Editor-in-Chief for this journal.</div>
+  {% endfor %}
+</div>
+
+<h2 style="font-size:16px;margin:28px 0 10px">Assign a Commissioning Editor</h2>
+<form method="post" class="assign-box">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="assign">
+  <label for="email">Member's email</label>
+  <div class="row">
+    <input id="email" type="email" name="email" placeholder="editor@institution.edu" required>
+    <button type="submit">Assign →</button>
+  </div>
+  <div style="font-size:12px;color:var(--muted);margin-top:6px">The member must already have an APID account. They'll see this journal's queue immediately after assignment.</div>
+</form>
+
+</div>
+{% endblock %}

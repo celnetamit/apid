@@ -1,0 +1,248 @@
+{% extends "profiles/base.html" %}
+{% block title %}{{ member.display_name }} — APID {{ member.apid }}{% endblock %}
+{% block meta %}
+<meta name="description" content="{{ member.display_name }}{% if profile.designation %}, {{ profile.designation }}{% endif %}{% if profile.affiliation %} at {{ profile.affiliation }}{% endif %} — APID academic profile.">
+<link rel="canonical" href="{{ profile_url }}">
+{# wisp 2026-10-02 pm: OpenGraph + Twitter card for rich link previews. #}
+<meta property="og:type" content="profile">
+<meta property="og:url" content="{{ profile_url }}">
+<meta property="og:title" content="{{ member.display_name }} — APID {{ member.apid }}">
+<meta property="og:description" content="{% if profile.designation %}{{ profile.designation }}{% if profile.affiliation %} at {{ profile.affiliation }}{% endif %} · {% endif %}Verified academic profile on APID.">
+<meta property="og:image" content="{{ card_url }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:site_name" content="APID">
+<meta property="profile:username" content="{{ member.apid }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ member.display_name }} — APID {{ member.apid }}">
+<meta name="twitter:description" content="{% if profile.designation %}{{ profile.designation }}{% if profile.affiliation %} at {{ profile.affiliation }}{% endif %} · {% endif %}Verified academic profile on APID.">
+<meta name="twitter:image" content="{{ card_url }}">
+{% endblock %}
+{% block structured_data %}
+<script type="application/ld+json">{{ person_ld_json|safe }}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[
+ {"@type":"ListItem","position":1,"name":"Home","item":"https://apid.journalslibrary.com/"},
+ {"@type":"ListItem","position":2,"name":"Members","item":"https://apid.journalslibrary.com/directory/"},
+ {"@type":"ListItem","position":3,"name":"{{ member.display_name|escapejs }}","item":"{{ profile_url }}"}
+]}</script>
+{% endblock %}
+{% block style %}
+ .social { font-size:14px; }
+ .social a { color:var(--ink); }
+ .followbtn { margin-left:10px; padding:5px 14px; border:0; border-radius:999px;
+   background:var(--accent); color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+ .head { display:flex; gap:22px; align-items:flex-start; }
+ .avatar { width:112px; height:112px; border-radius:8px; object-fit:cover;
+           border:1px solid var(--line); background:#eef2f6; flex:none; }
+ h1 { font-size:26px; margin:0 0 4px; }
+ .role { display:inline-block; font-size:12px; padding:2px 9px; border-radius:20px;
+         background:#eef4fb; color:var(--accent); margin:0 6px 6px 0; }
+ dl.facts { display:grid; grid-template-columns:170px 1fr; gap:8px 18px; margin:20px 0 0; }
+ dl.facts dt { color:var(--muted); font-size:14px; }
+ dl.facts dd { margin:0; }
+ h2 { font-size:17px; margin:26px 0 10px; }
+ ol.pubs { padding-left:20px; } ol.pubs li { margin-bottom:8px; }
+ table.board { width:100%; border-collapse:collapse; font-size:15px; }
+ table.board td { padding:7px 0; border-bottom:1px solid var(--line); }
+
+ /* wisp 2026-10-02 pm: share widget */
+ .share-row { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; align-items:center; }
+ .share-row .share-label { font-size:12px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
+ .share-btn { display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:8px;
+              border:1px solid var(--line); background:#fff; color:var(--ink); font-size:13px;
+              font-weight:500; text-decoration:none; cursor:pointer; }
+ .share-btn:hover { border-color:var(--primary); color:var(--primary); text-decoration:none; }
+ .share-btn.copy.ok { background:#d1fae5; color:#065f46; border-color:#10b981; }
+ .share-btn .ico { font-size:14px; line-height:1; }
+ @media (max-width:600px) {
+   .share-btn { padding:9px 14px; font-size:14px; }
+ }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="head">
+    {% if profile.picture %}
+      <img class="avatar" src="/media/{{ profile.picture }}" alt="{{ member.display_name }}">
+    {% else %}<div class="avatar"></div>{% endif %}
+    <div>
+      <h1>{{ member.title }} {{ member.display_name }}</h1>
+      <div class="muted">
+        {% if profile.designation %}{{ profile.designation }}{% endif %}
+        {% if profile.department %} · {{ profile.department }}{% endif %}
+      </div>
+      {% if profile.affiliation %}
+        <div style="margin-top:4px">
+          {% if profile.affiliation_url %}<a href="{{ profile.affiliation_url }}">{{ profile.affiliation }}</a>
+          {% else %}{{ profile.affiliation }}{% endif %}
+        </div>
+      {% endif %}
+      <div style="margin-top:10px">
+        {% for r in member.roles.all %}<span class="role">{{ r.get_role_display }}</span>{% endfor %}
+      </div>
+      {% if can_impersonate %}
+      <div style="margin-top:10px">
+        <a href="{% url 'impersonate' member.apid %}" class="followbtn"
+           style="background:#8c2b23;padding:7px 14px"
+           onclick="return confirm('Sign in as {{ member.display_name|escapejs }} ({{ member.apid }})? You can return to your own account from the red banner at the top.')">
+          🔐 Login as this member
+        </a>
+      </div>
+      {% endif %}
+      {% if full_view %}
+      <div class="social" style="margin-top:10px">
+        <a href="{% url 'followers' member.apid %}"><strong>{{ counts.followers|default:0 }}</strong> followers</a>
+        · <a href="{% url 'following' member.apid %}"><strong>{{ counts.following|default:0 }}</strong> following</a>
+        · <strong>{{ counts.posts|default:0 }}</strong> posts
+        {% if user.is_authenticated and user != member %}
+          <form method="post" action="{% url 'follow' member.apid %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" class="followbtn">{% if i_follow %}Following{% else %}Follow{% endif %}</button>
+          </form>
+        {% endif %}
+      </div>
+      {% endif %}
+      {# wisp 2026-10-02 pm: share widget — present on every profile view #}
+      <div class="share-row">
+        <span class="share-label">Share</span>
+        <button type="button" class="share-btn copy" data-copy="{{ profile_url }}" title="Copy profile link">
+          <span class="ico">🔗</span>Copy link
+        </button>
+        <a class="share-btn" target="_blank" rel="noopener"
+           href="https://www.linkedin.com/sharing/share-offsite/?url={{ profile_url|urlencode }}">
+          <span class="ico">in</span>LinkedIn
+        </a>
+        <a class="share-btn" target="_blank" rel="noopener"
+           href="https://twitter.com/intent/tweet?text={{ share_tagline|urlencode }}&url={{ profile_url|urlencode }}">
+          <span class="ico">X</span>Twitter
+        </a>
+        <a class="share-btn" target="_blank" rel="noopener"
+           href="https://wa.me/?text={{ share_tagline|urlencode }}%20{{ profile_url|urlencode }}">
+          <span class="ico">💬</span>WhatsApp
+        </a>
+        <a class="share-btn"
+           href="mailto:?subject={{ member.display_name|urlencode }}%20on%20APID&body={{ share_tagline|urlencode }}%0A%0A{{ profile_url|urlencode }}">
+          <span class="ico">✉</span>Email
+        </a>
+        <a class="share-btn" href="{{ profile_url }}qr.png" download="apid-{{ member.apid|lower }}-qr.png" title="Download QR code">
+          <span class="ico">⬚</span>QR
+        </a>
+        <a class="share-btn" href="{{ profile_url }}card.png" download="apid-{{ member.apid|lower }}-card.png" title="Download profile card">
+          <span class="ico">🖼</span>Card
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% if full_view and posts %}
+    <h2 style="font-size:15px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:26px 0 10px">Recent posts</h2>
+    {% for p in posts %}
+      <div style="border-top:1px solid var(--line);padding:11px 0">
+        <div style="white-space:pre-wrap">{{ p.body|truncatechars:320 }}</div>
+        <div class="muted small" style="margin-top:4px">{{ p.created_at|date:"j M Y" }}
+          · ♥ {{ p.reaction_count }} · {{ p.comment_count }} comment{{ p.comment_count|pluralize }}</div>
+      </div>
+    {% endfor %}
+  {% endif %}
+
+  <dl class="facts">
+    <dt>APID</dt><dd><strong>{{ member.apid }}</strong></dd>
+    {% if profile.orcid %}<dt>ORCID</dt>
+      <dd><a href="https://orcid.org/{{ profile.orcid }}">{{ profile.orcid }}</a></dd>{% endif %}
+    {% if profile.scopus_id %}<dt>Scopus</dt><dd>{{ profile.scopus_id }}</dd>{% endif %}
+    {% if profile.google_scholar_id %}<dt>Google Scholar</dt><dd>{{ profile.google_scholar_id }}</dd>{% endif %}
+    {% if profile.city or profile.country %}<dt>Location</dt>
+      <dd>{{ profile.city }}{% if profile.state %}, {{ profile.state }}{% endif %}{% if profile.country %}, {{ profile.country }}{% endif %}</dd>{% endif %}
+    {% if profile.expertise %}<dt>Expertise</dt><dd>{{ profile.expertise }}</dd>{% endif %}
+    {% if profile.areas_of_interest %}<dt>Areas of interest</dt><dd>{{ profile.areas_of_interest }}</dd>{% endif %}
+    {% if member.registered_at %}<dt>Member since</dt><dd>{{ member.registered_at|date:"F Y" }}</dd>{% endif %}
+  </dl>
+
+  {% if profile.biography %}<h2>Biography</h2><p>{{ profile.biography|linebreaksbr }}</p>{% endif %}
+
+  {% if full_view and appointments %}
+    <h2>Editorial board</h2>
+    <table class="board">
+      {% for a in appointments %}
+        <tr><td>{{ a.journal.title }}</td><td class="muted">{{ a.role }}</td>
+            <td class="muted small">{% if a.started_on %}since {{ a.started_on|date:"M Y" }}{% endif %}</td></tr>
+      {% endfor %}
+    </table>
+  {% endif %}
+
+  {% if can_invite %}
+    <details style="margin-top:22px;padding:14px;border:1px solid var(--line);border-radius:8px;background:#f8fafc">
+      <summary style="cursor:pointer;font-weight:600;color:var(--accent)">Invite this member →</summary>
+      <form method="post" action="{% url 'invite-from-profile' member.apid %}" style="margin-top:12px">
+        {% csrf_token %}
+        <div style="display:grid;grid-template-columns:1fr 180px;gap:10px">
+          <label>Journal
+            <select name="journal_code" required style="width:100%;padding:6px">
+              <option value="">— pick a journal —</option>
+              {% for j in invite_journals %}
+                <option value="{{ j.abbreviation }}">{{ j.abbreviation }} — {{ j.title }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Role
+            <select name="role" required style="width:100%;padding:6px">
+              <option value="eic">Editor-in-Chief</option>
+              <option value="deputy">Deputy Editor</option>
+              <option value="associate" selected>Associate Editor</option>
+              <option value="section">Section Editor</option>
+              <option value="guest">Guest Editor</option>
+              <option value="assistant">Editorial Assistant</option>
+              <option value="reviewer">Reviewer (peer-review pool)</option>
+            </select>
+          </label>
+        </div>
+        <label style="display:block;margin-top:10px">Personal note (shown to the member)
+          <textarea name="note" rows="2" placeholder="Why you're inviting them" style="width:100%;padding:6px"></textarea>
+        </label>
+        <button type="submit" style="margin-top:10px;padding:8px 18px;background:var(--accent);color:#fff;border:0;border-radius:6px;font-weight:600;cursor:pointer">Send invitation</button>
+      </form>
+    </details>
+  {% endif %}
+
+  {% if not full_view %}
+    <div style="margin-top:26px;padding:18px;background:#f6f9fc;border:1px solid var(--line);border-radius:8px;text-align:center">
+      <p style="margin:0 0 10px;color:var(--muted)">Sign in to see editorial board appointments, follow, and connect.</p>
+      <a href="{% url 'login' %}?next=/profiles/{{ member.apid }}/" class="followbtn" style="display:inline-block;padding:8px 20px;text-decoration:none">Sign in</a>
+    </div>
+  {% endif %}
+
+  {% if publications %}
+    <h2>Publications</h2>
+    <ol class="pubs">
+      {% for p in publications %}
+        <li>{% if p.link %}<a href="{{ p.link }}">{{ p.title }}</a>{% else %}{{ p.title }}{% endif %}</li>
+      {% endfor %}
+    </ol>
+  {% endif %}
+</div>
+
+<script>
+(function(){
+  // Clipboard-copy for the share widget. One listener, event delegated.
+  document.addEventListener("click", function(e){
+    var btn = e.target.closest(".share-btn.copy");
+    if (!btn) return;
+    e.preventDefault();
+    var url = btn.getAttribute("data-copy") || "";
+    var done = function(){
+      var original = btn.innerHTML;
+      btn.classList.add("ok");
+      btn.innerHTML = '<span class="ico">✓</span>Copied';
+      setTimeout(function(){ btn.classList.remove("ok"); btn.innerHTML = original; }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function(){});
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = url; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch(_){}
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "profiles/base.html" %}
+{% block title %}Edit your profile · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Your profile</h1>
+  <p class="muted small" style="margin-top:-10px">This is what the registry says about
+    you, and what your public page shows. Changing it here changes it everywhere.</p>
+  <form method="post">{% csrf_token %}
+    <div class="grid">{% include "members/_form.html" %}</div>
+    <button type="submit">Save</button>
+    <a class="btn quiet" href="{% url 'dashboard' %}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,189 @@
+{% extends "profiles/base.html" %}
+{% block title %}Board application workflow · APID{% endblock %}
+{% block style %}
+ .mermaid { background:#fff; padding:20px; border:1px solid var(--line); border-radius:10px; }
+ .legend { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-top:20px;
+           font-size:13px; }
+ .legend div { padding:10px; border-radius:6px; }
+ .legend .apid { background:#e0f2fe; color:#0c4a6e; }
+ .legend .mng  { background:#fef3c7; color:#78350f; }
+ .legend .ext  { background:#f3e8ff; color:#4c1d95; }
+ .legend .db   { background:#dcfce7; color:#065f46; }
+ h2 { font-size:16px; margin:30px 0 10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+ table.summary { width:100%; border-collapse:collapse; margin-top:10px; }
+ table.summary th, table.summary td { padding:8px 12px; text-align:left; border-bottom:1px solid var(--line); font-size:14px; }
+ table.summary th { background:#f8fafc; }
+ code { background:#f1f5f9; padding:2px 6px; border-radius:4px; font-size:13px; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Editorial board — workflow map</h1>
+  <p class="muted small">
+    Everywhere a candidate exists, and every path a decision travels. APID is the
+    front door and profile registry; manuscript-ngine is where every decision is
+    recorded and every certificate signed.
+  </p>
+
+  <h2>1. The full picture</h2>
+  <div class="mermaid">
+flowchart TB
+    subgraph APID["APID — apid.celnet.in (front door, profiles, /me/)"]
+        A_apply["/apply/<br/>applicant fills form"]
+        A_prof["/profiles/&lt;apid&gt;/<br/>directory page<br/>+ Invite form (office)"]
+        A_me["/me/<br/>member dashboard<br/>(applications + invitations)"]
+        A_office["/office/<br/>read-only queue viewer"]
+        A_sugg["/office/suggestions/<br/>recommender UI"]
+        A_invite_resp["/invites/&lt;token&gt;/<br/>accept or decline"]
+    end
+
+    subgraph MNG["mng — manuscript-engine.celnet.in (source of truth)"]
+        M_intake["POST /api/v1/apid/board-application/<br/>creates BoardApplication + Choices"]
+        M_queue["/app/board-applications<br/>editor decides"]
+        M_read["/api/v1/apid/queue/*<br/>signed read endpoints"]
+        M_invite["/api/v1/apid/invite/*<br/>invitation CRUD"]
+        M_rec["/api/v1/apid/recommend/<br/>TF-IDF scoring"]
+        M_decide["board_services.decide()<br/>on ACCEPTED:<br/>• JournalRole created<br/>• Reviewer? → ReviewerProfile<br/>• certificates.for_board_appointment()<br/>• apid_reflect.appointment_accepted()"]
+    end
+
+    subgraph APID_DB["APID DB (Postgres)"]
+        DB_member["Member (13,412)"]
+        DB_appt["Appointment<br/>(mirror only)"]
+    end
+
+    subgraph MNG_DB["mng DB (Postgres)"]
+        DB_bapp["BoardApplication<br/>+ BoardApplicationChoice"]
+        DB_binv["BoardInvitation"]
+        DB_jrole["JournalRole"]
+        DB_cert["Certificate<br/>+ PDF"]
+        DB_rev["ReviewerProfile"]
+    end
+
+    subgraph EXT["Delivery"]
+        MAIL["SES email<br/>certificates, invite links"]
+    end
+
+    A_apply -->|signed POST| M_intake
+    M_intake --> DB_bapp
+    M_read -.reads.-> DB_bapp
+    A_office -->|signed GET| M_read
+    A_me -->|signed GET| M_read
+    A_me -->|signed GET| M_invite
+
+    A_prof -->|signed POST| M_invite
+    A_sugg -->|signed GET| M_rec
+    A_sugg -->|signed POST| M_invite
+    M_rec -.reads.-> DB_member
+    M_invite --> DB_binv
+
+    M_queue --> M_decide
+    A_invite_resp -->|signed POST| M_invite
+    M_invite -->|on accept| M_decide
+
+    M_decide --> DB_jrole
+    M_decide --> DB_rev
+    M_decide --> DB_cert
+    M_decide -->|POST /api/reflect/appointment/| DB_appt
+    M_decide -.PDF + link.-> MAIL
+    M_invite -.invite link.-> MAIL
+
+    classDef apidbox fill:#e0f2fe,stroke:#0284c7,color:#0c4a6e
+    classDef mngbox fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef dbbox fill:#dcfce7,stroke:#059669,color:#065f46
+    classDef extbox fill:#f3e8ff,stroke:#7c3aed,color:#4c1d95
+    class A_apply,A_prof,A_me,A_office,A_sugg,A_invite_resp apidbox
+    class M_intake,M_queue,M_read,M_invite,M_rec,M_decide mngbox
+    class DB_member,DB_appt,DB_bapp,DB_binv,DB_jrole,DB_cert,DB_rev dbbox
+    class MAIL extbox
+  </div>
+
+  <div class="legend">
+    <div class="apid"><strong>APID</strong> — front door, profile registry, /me/ view</div>
+    <div class="mng"><strong>mng</strong> — source of truth for every decision</div>
+    <div class="db"><strong>Databases</strong> — two Postgres, one signed bridge</div>
+    <div class="ext"><strong>Delivery</strong> — SES for email</div>
+  </div>
+
+  <h2>2. Path A — someone applies</h2>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Applicant
+    participant APID as APID /apply/
+    participant MNGIntake as mng intake<br/>(signed)
+    participant MNGDB as mng DB
+    participant Editor as Editor<br/>(commissioning / manager)
+    participant MNGQueue as mng /app/board-applications
+    participant MNGDecide as board_services.decide()
+    participant Cert as certificates.issue()
+    participant APIDDB as APID Appointment
+    participant Mail as SES
+
+    Applicant->>APID: fills form (3 journals)
+    APID->>MNGIntake: POST board-application (HMAC-signed)
+    MNGIntake->>MNGDB: BoardApplication + 3× Choices
+    MNGDB-->>Editor: appears in mng queue<br/>(and APID /office/ viewer)
+    Editor->>MNGQueue: click Accept on ONE choice
+    MNGQueue->>MNGDecide: role=EIC (or reviewer, etc.)
+    MNGDecide->>MNGDB: choice.status=accepted<br/>+ JournalRole created
+    MNGDecide->>Cert: for_board_appointment(choice)
+    Cert->>MNGDB: Certificate row + PDF
+    Cert->>Mail: queue certificate email
+    MNGDecide->>APIDDB: POST /api/reflect/appointment/<br/>(HMAC-signed)
+    APIDDB->>APIDDB: Appointment row created<br/>(→ visible on /profiles/)
+    Applicant->>APID: refresh /me/ → sees per-journal status
+  </div>
+
+  <h2>3. Path B — team invites a candidate</h2>
+  <div class="mermaid">
+sequenceDiagram
+    autonumber
+    participant Team as Team member<br/>(office / manager)
+    participant Prof as APID /profiles/&lt;apid&gt;/
+    participant Sugg as APID /office/suggestions/
+    participant Rec as mng recommend
+    participant MNGInv as mng invite/*
+    participant Recipient
+    participant MNGDecide as board_services.decide()
+    participant Rest as (same as Path A steps 8-14)
+
+    Team->>Sugg: pick journal + role
+    Sugg->>Rec: signed GET recommend
+    Rec-->>Sugg: ranked candidates (TF-IDF + intl boost)
+    Sugg->>Team: shows candidates with "Invite as ROLE" buttons
+
+    Team->>Prof: (alternative) opens profile directly
+    Prof->>MNGInv: POST invite (journal + role + note)
+    MNGInv->>MNGInv: BoardInvitation created<br/>(idempotent per email+journal+role)
+    MNGInv->>Recipient: mail invite link<br/>/invites/&lt;token&gt;/
+    Recipient->>MNGInv: POST accept
+    MNGInv->>MNGDecide: fold into decide()
+    MNGDecide->>Rest: same downstream: JournalRole,<br/>certificate, APID reflect, email
+  </div>
+
+  <h2>4. Where each thing lives</h2>
+  <table class="summary">
+    <tr><th>Concern</th><th>Where the data lives</th><th>Where the UI is</th><th>Who can see</th></tr>
+    <tr><td>Applicant identity + profile</td><td>APID <code>Member</code>, <code>Profile</code></td><td>APID <code>/profiles/</code></td><td>Public (basic) / signed-in (full)</td></tr>
+    <tr><td>Board application + per-journal choice</td><td>mng <code>BoardApplication</code>, <code>BoardApplicationChoice</code></td><td>mng queue + APID <code>/office/</code> (readonly)</td><td>Office; managers see own journals</td></tr>
+    <tr><td>Invitation</td><td>mng <code>BoardInvitation</code></td><td>APID profile page + APID <code>/me/</code></td><td>Sender + recipient only</td></tr>
+    <tr><td>Granted role</td><td>mng <code>JournalRole</code></td><td>mng team roster</td><td>Office; the person themselves</td></tr>
+    <tr><td>Reviewer pool seat</td><td>mng <code>ReviewerProfile</code></td><td>mng reviewer picker</td><td>Managing editors when inviting reviewers</td></tr>
+    <tr><td>Certificate PDF</td><td>mng <code>Certificate.pdf</code></td><td>Emailed + mng certificate list</td><td>Recipient</td></tr>
+    <tr><td>Appointment (public reflection)</td><td>APID <code>Appointment</code></td><td>APID <code>/profiles/&lt;apid&gt;/</code></td><td>Signed-in visitors</td></tr>
+  </table>
+
+  <h2>5. Trust boundary — what crosses it, and how</h2>
+  <table class="summary">
+    <tr><th>Call</th><th>Direction</th><th>Signed by</th></tr>
+    <tr><td>Submit application (<code>/api/v1/apid/board-application/</code>)</td><td>APID → mng</td><td>HMAC-SHA256 (APID_LOOKUP_SECRET)</td></tr>
+    <tr><td>Queue read (<code>/api/v1/apid/queue/*</code>)</td><td>APID → mng</td><td>same</td></tr>
+    <tr><td>Invitation create/list/respond (<code>/api/v1/apid/invite/*</code>)</td><td>APID → mng</td><td>same</td></tr>
+    <tr><td>Recommend (<code>/api/v1/apid/recommend/</code>)</td><td>APID → mng, mng → APID DB</td><td>HMAC + direct read of APID Postgres</td></tr>
+    <tr><td>Appointment reflect (<code>/api/reflect/appointment/</code>)</td><td>mng → APID</td><td>same HMAC (reverse direction)</td></tr>
+    <tr><td>Identity lookup (<code>/api/identity/members/</code>)</td><td>mng → APID</td><td>same HMAC</td></tr>
+  </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral' });</script>
+{% endblock %}

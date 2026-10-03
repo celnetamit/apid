@@ -1,0 +1,66 @@
+{% extends "profiles/base.html" %}
+{% block title %}Journals — APID Office{% endblock %}
+{% block style %}
+ .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
+ .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; }
+ .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
+ .page-head .crumb a { color:#dbeafe; }
+ .page-head p { color:#cbd5e1; margin:0; font-size:14px; }
+ .page-head .n { color:#F5A623; font-weight:700; }
+ .filters { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+ .filters input[type=search] { flex:1; min-width:200px; }
+ .filters .toggle { display:inline-flex; align-items:center; gap:6px; font-size:14px; color:var(--muted); }
+ .j-table { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ .j-row { display:grid; grid-template-columns:1fr 100px 100px 110px; gap:16px; padding:14px 20px; border-top:1px solid var(--line); align-items:center; }
+ .j-row:first-child { border-top:0; }
+ .j-row.head { background:var(--soft); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; padding:12px 20px; }
+ .j-title { color:var(--ink); font-weight:600; font-size:14px; }
+ .j-sub { color:var(--muted); font-size:12px; margin-top:2px; }
+ .count { font-weight:700; font-variant-numeric:tabular-nums; }
+ .count.zero { color:var(--danger); }
+ .count.ok { color:#065f46; }
+ .j-row .act { text-align:right; }
+ .j-row .act a { font-size:13px; color:var(--primary); font-weight:500; }
+ @media (max-width:720px) { .j-row { grid-template-columns:1fr auto; } .j-row .count, .j-row .j-sub { display:none; } }
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="/office/">Office</a> · Journals</div>
+    <h1>Journals &amp; Commissioning Editors</h1>
+    <p><span class="n">{{ total }}</span> journals · <span class="n">{{ without_ce }}</span> without a commissioning editor</p>
+  </div>
+</div>
+<div class="wrap">
+
+{% if messages %}{% for m in messages %}<div class="card" style="margin-bottom:14px;padding:12px 18px">{{ m }}</div>{% endfor %}{% endif %}
+
+<form method="get" class="filters">
+  <input type="search" name="q" placeholder="Search journals by title…" value="{{ q }}">
+  <label class="toggle"><input type="checkbox" name="needs_ce" value="1" {% if needs_ce %}checked{% endif %} onchange="this.form.submit()"> Only without CE</label>
+  <button type="submit">Search</button>
+</form>
+
+<div class="j-table">
+  <div class="j-row head">
+    <div>Journal</div>
+    <div style="text-align:center">CEs</div>
+    <div style="text-align:center">Managers</div>
+    <div class="act">&nbsp;</div>
+  </div>
+  {% for j in journals %}
+    <div class="j-row">
+      <div>
+        <div class="j-title">{{ j.title }}</div>
+        {% if j.subject %}<div class="j-sub">{{ j.subject }}</div>{% endif %}
+      </div>
+      <div style="text-align:center" class="count {% if j.ce_count == 0 %}zero{% else %}ok{% endif %}">{{ j.ce_count }}</div>
+      <div style="text-align:center" class="count">{{ j.mgr_count }}</div>
+      <div class="act"><a href="{% url 'journal-manage' j.pk %}">Manage →</a></div>
+    </div>
+  {% endfor %}
+</div>
+
+</div>
+{% endblock %}

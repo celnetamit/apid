@@ -1,0 +1,106 @@
+{% extends "profiles/base.html" %}
+{% block title %}Editorial queue · APID{% endblock %}
+{% block style %}
+ .queue-head { display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; }
+ .queue-head h1 { margin:0; }
+ .queue-head .suggest { font-size:14px; padding:8px 16px; background:var(--accent); color:#000; border-radius:8px; text-decoration:none; font-weight:600; white-space:nowrap; }
+ .queue-head .suggest:hover { background:var(--accent-dark); color:#000; }
+ .tabs { display:flex; gap:8px; flex-wrap:wrap; margin:18px 0 16px; }
+ .tab { padding:7px 13px; border:1px solid var(--line); border-radius:999px;
+        background:#fff; font-size:14px; color:var(--ink); text-decoration:none; }
+ .tab.on { background:var(--accent); color:#000; border-color:var(--accent); font-weight:600; }
+ .app { border-top:1px solid var(--line); padding:14px 0; display:flex; gap:14px;
+        align-items:flex-start; }
+ .app:first-of-type { border-top:0; }
+ .who { flex:1; min-width:0; }
+ .who a { color:var(--ink); }
+ .who strong { font-size:15px; }
+ .who .email { color:var(--muted); font-size:13px; margin-top:2px; }
+ .who .meta { color:var(--muted); font-size:13px; margin-top:4px; }
+ .when { color:var(--muted); font-size:13px; white-space:nowrap; text-align:right; }
+ .badge { display:inline-block; font-size:11px; padding:2px 8px; border-radius:999px;
+          font-weight:600; letter-spacing:.02em; margin-left:6px; vertical-align:middle; }
+ .badge.warn { background:#fef3c7; color:#78350f; }
+ .badge.info { background:#dbeafe; color:#1e3a8a; }
+ .badge.good { background:#d1fae5; color:#064e3b; }
+ .badge.muted { background:#e5e7eb; color:#374151; }
+ .search { display:flex; gap:8px; margin-bottom:18px; }
+ .search input { flex:1; }
+ .search button { white-space:nowrap; }
+ .note { background:#eff6ff; border:1px solid #bfdbfe; padding:10px 14px;
+         border-radius:8px; margin-bottom:16px; color:#1e3a8a; font-size:14px; }
+ .decide-btn { display:inline-block; padding:7px 14px; background:var(--accent); color:#000;
+               border-radius:6px; font-size:13px; font-weight:600; text-decoration:none; margin-top:4px; }
+ .decide-btn:hover { background:var(--accent-dark); color:#000; }
+ @media (max-width:600px) {
+   .queue-head { flex-direction:column; align-items:flex-start; }
+   .queue-head .suggest { width:100%; text-align:center; }
+   .app { flex-direction:column; gap:8px; }
+   .when { text-align:left; }
+ }
+{% endblock %}
+{% block content %}
+{% if messages %}{% for m in messages %}<div class="note">{{ m }}</div>{% endfor %}{% endif %}
+<div class="card">
+  <div class="queue-head">
+    <h1>Editorial queue</h1>
+    <a href="{% url 'editorial-suggestions' %}" class="suggest">Suggest candidates →</a>
+  </div>
+
+  <div class="tabs">
+    {% for value, label, count in tabs %}
+      <a class="tab {% if state == value %}on{% endif %}"
+         href="?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}">
+         {{ label }} <span class="{% if state != value %}muted{% endif %}">{{ count }}</span>
+      </a>
+    {% endfor %}
+    <a class="tab {% if state == 'all' %}on{% endif %}"
+       href="?state=all{% if query %}&q={{ query|urlencode }}{% endif %}">All</a>
+  </div>
+
+  <form class="search" method="get">
+    <input type="hidden" name="state" value="{{ state }}">
+    <input type="text" name="q" value="{{ query }}"
+           placeholder="Name, email, subject or role">
+    <button type="submit">Search</button>
+  </form>
+
+  <p class="muted small">Showing {{ shown }} of {{ total }}.</p>
+
+  {% for r in rows %}
+    <div class="app">
+      <div class="who">
+        <a href="{% url 'application' r.pk %}">
+          <strong>{{ r.applicant|default:"(no name)" }}</strong>
+        </a>
+        <span class="badge {{ r.state_tone }}">{{ r.state_label }}</span>
+        {% if r.email %}<div class="email">{{ r.email }}</div>{% endif %}
+        {% if r.role or r.subject %}
+        <div class="meta">
+          {% if r.role %}{{ r.role }}{% endif %}
+          {% if r.role and r.subject %} · {% endif %}
+          {% if r.subject %}{{ r.subject|truncatechars:160 }}{% endif %}
+        </div>
+        {% endif %}
+        {% if r.journals %}
+        <div class="meta">📚 {{ r.journals|truncatechars:220 }}</div>
+        {% endif %}
+      </div>
+      <div class="when">
+        {% if r.applied_at %}<div>applied {{ r.applied_at|date:"Y-m-d" }}</div>{% endif %}
+        {% if r.cv_url %}
+          <div style="margin:4px 0"><a href="{{ r.cv_url }}" target="_blank" rel="noopener"
+             style="font-size:13px">📎 CV</a></div>
+        {% endif %}
+        {% if r.decided_at %}
+          <div class="muted small">decided {{ r.decided_at|date:"Y-m-d" }}</div>
+        {% else %}
+          <a href="{% url 'application' r.pk %}" class="decide-btn">Decide →</a>
+        {% endif %}
+      </div>
+    </div>
+  {% empty %}
+    <p class="muted">Nothing here.</p>
+  {% endfor %}
+</div>
+{% endblock %}

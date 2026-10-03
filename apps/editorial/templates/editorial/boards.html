@@ -1,0 +1,22 @@
+{% extends "profiles/base.html" %}
+{% block title %}Boards · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .j { display:flex; gap:12px; border-top:1px solid var(--line); padding:11px 0; }
+ .j:first-child { border-top:0; }
+ .n { width:44px; text-align:right; font-variant-numeric:tabular-nums; }
+ .none { color:#a3352b; font-weight:600; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Editorial boards</h1>
+  <p class="muted small">{{ total }} journals · <strong class="none">{{ empty }}</strong>
+    with nobody currently serving. Emptiest first — that is the list worth working.</p>
+  {% for j in journals %}
+    <div class="j">
+      <div class="n {% if not j.serving %}none{% endif %}">{{ j.serving }}</div>
+      <div><a href="{% url 'board' j.pk %}">{{ j.title }}</a>
+        <div class="muted small">{{ j.subject }}</div></div>
+    </div>
+  {% endfor %}
+</div>
+{% endblock %}

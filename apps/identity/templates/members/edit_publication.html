@@ -1,0 +1,13 @@
+{% extends "profiles/base.html" %}
+{% block title %}{% if publication %}Edit{% else %}Add{% endif %} a publication · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>{% if publication %}Edit{% else %}Add{% endif %} a publication</h1>
+  <form method="post">{% csrf_token %}
+    {% include "members/_form.html" %}
+    <button type="submit">Save</button>
+    <a class="btn quiet" href="{% url 'publications' %}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

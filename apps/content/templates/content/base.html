@@ -1,0 +1,235 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}APID — Academic Publishing &amp; Information Database{% endblock %}</title>
+<link rel="icon" href="{% static 'apid/apid-icon.png' %}" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="canonical" href="{% block canonical %}https://apid.journalslibrary.com{{ request.path }}{% endblock %}">
+<meta name="robots" content="{% block robots %}index,follow,max-image-preview:large{% endblock %}">
+<meta name="theme-color" content="#1E88E5">
+<meta property="og:site_name" content="APID">
+<meta property="og:locale" content="en_US">
+<meta property="og:type" content="{% block og_type %}website{% endblock %}">
+<meta property="og:title" content="{% block og_title %}{{ page_title|default:'APID — Academic Publishing & Information Database' }}{% endblock %}">
+<meta property="og:description" content="{% block og_description %}{{ lede|default:'A permanent, verified registry for 13,400+ academic researchers worldwide — a lasting academic identity backed by STM Journals editorial infrastructure.' }}{% endblock %}">
+<meta property="og:url" content="https://apid.journalslibrary.com{{ request.path }}">
+<meta property="og:image" content="{% block og_image %}https://apid.journalslibrary.com{% static 'apid/apid-logo.png' %}{% endblock %}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{% block tw_title %}{{ page_title|default:'APID — Academic Publishing & Information Database' }}{% endblock %}">
+<meta name="twitter:description" content="{% block tw_description %}{{ lede|default:'A permanent, verified registry for 13,400+ academic researchers worldwide.' }}{% endblock %}">
+{% block meta %}
+<meta name="description" content="{{ lede|default:'APID — Academic Publishing and Information Database. A permanent, verified registry for researchers, scholars, academicians and editorial board members. Build a lasting academic identity, network with peers and showcase your contributions.' }}">
+{% endblock %}
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"Organization","@id":"https://apid.journalslibrary.com/#org",
+  "name":"Consortium e-Learning Network Pvt Ltd","alternateName":["APID","STM Journals"],
+  "url":"https://apid.journalslibrary.com/",
+  "logo":"https://apid.journalslibrary.com{% static 'apid/apid-logo.png' %}",
+  "email":"info@celnet.in",
+  "sameAs":["https://stmjournals.com/","https://journalslibrary.com/"]},
+ {"@type":"WebSite","@id":"https://apid.journalslibrary.com/#site",
+  "url":"https://apid.journalslibrary.com/","name":"APID",
+  "description":"Academic Publishing and Information Database — a permanent registry of academic researchers.",
+  "publisher":{"@id":"https://apid.journalslibrary.com/#org"},"inLanguage":"en",
+  "potentialAction":{"@type":"SearchAction",
+    "target":"https://apid.journalslibrary.com/directory/?q={search_term_string}",
+    "query-input":"required name=search_term_string"}}
+]}
+</script>
+{% block structured_data %}{% endblock %}
+<style>
+ :root {
+   --ink:#0f1b2d; --muted:#5b6b7c; --line:#e3e8ee;
+   --primary:#1E88E5; --primary-dark:#1565c0; --primary-light:#e3f2fd;
+   --accent:#F5A623; --accent-dark:#d48806;
+   --danger:#B91C3C; --warm:#F7B991;
+   --bg:#ffffff; --surface:#ffffff; --soft:#f7f9fc;
+ }
+ * { box-sizing:border-box; }
+ html, body { margin:0; }
+ body { background:var(--bg); color:var(--ink);
+        font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+        font-size:16px; line-height:1.65; }
+ a { color:var(--primary); text-decoration:none; }
+ a:hover { color:var(--primary-dark); }
+ h1,h2,h3,h4 { color:var(--ink); line-height:1.25; margin:0; letter-spacing:-0.015em; }
+ .wrap { max-width:1140px; margin:0 auto; padding:0 24px; }
+
+ header.site { background:#fff; border-bottom:1px solid var(--line); position:sticky; top:0; z-index:50; }
+ header.site .wrap { display:flex; align-items:center; gap:16px; height:72px; }
+ .brand { display:flex; align-items:center; gap:12px; color:var(--ink); font-weight:700; }
+ .brand img { height:46px; width:auto; display:block; }
+ .brand .name { font-size:22px; letter-spacing:-0.02em; line-height:1; }
+ .brand .tag { color:var(--muted); font-weight:400; font-size:12px; display:block; margin-top:3px; }
+ nav.top { margin-left:auto; display:flex; align-items:center; gap:28px; font-size:15px; }
+ nav.top a { color:var(--ink); font-weight:500; }
+ nav.top a:hover { color:var(--primary); }
+ nav.top .cta { background:var(--primary); color:#fff; padding:10px 20px; border-radius:8px; font-weight:600; }
+ nav.top .cta:hover { background:var(--primary-dark); color:#fff; }
+ nav.top form button { background:none; border:0; padding:0; font:inherit; color:var(--ink); cursor:pointer; font-weight:500; }
+ nav.top form button:hover { color:var(--primary); }
+
+ .badge { background:var(--danger); color:#fff; border-radius:999px; padding:1px 7px; font-size:11px; font-weight:700; }
+ .btn { display:inline-flex; align-items:center; gap:8px; padding:12px 22px; border-radius:10px; font-weight:600; font-size:15px; text-decoration:none; transition:all .15s; }
+ .btn-primary { background:var(--primary); color:#fff; }
+ .btn-primary:hover { background:var(--primary-dark); transform:translateY(-1px); box-shadow:0 8px 20px rgba(30,136,229,0.35); }
+ .btn-accent { background:var(--accent); color:#000; }
+ .btn-accent:hover { background:var(--accent-dark); color:#000; }
+ .btn-outline { background:transparent; color:#fff; border:1px solid rgba(255,255,255,0.35); }
+ .btn-outline:hover { background:rgba(255,255,255,0.1); color:#fff; }
+ .btn-dark-outline { background:#fff; color:var(--ink); border:1px solid var(--line); }
+ .btn-dark-outline:hover { border-color:var(--primary); color:var(--primary); }
+
+ footer { background:var(--ink); color:#94a3b8; padding:56px 0 24px; }
+ footer a { color:#cbd5e1; }
+ footer a:hover { color:#fff; }
+ .ft-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:36px; margin-bottom:36px; padding:0 24px; }
+ .ft-col h4 { color:#fff; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; margin:0 0 14px; font-weight:700; }
+ .ft-col a { display:block; font-size:14px; margin-bottom:8px; }
+ .ft-brand { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+ .ft-brand img { height:36px; }
+ .ft-brand span { font-weight:700; font-size:18px; color:#fff; }
+ .ft-grid p { font-size:14px; line-height:1.6; margin:0 0 14px; max-width:300px; }
+ .ft-bottom { border-top:1px solid #243147; padding:20px 24px 0; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; font-size:13px; max-width:1140px; margin:0 auto; }
+
+ /* Hamburger — hidden on desktop, visible below 1200px */
+ .hamburger { display:none; background:none; border:0; padding:10px; margin-left:auto;
+              width:44px; height:44px; cursor:pointer; align-items:center; justify-content:center; }
+ .hamburger span { display:block; width:24px; height:2px; background:var(--ink);
+                   margin:4px 0; transition:transform .2s, opacity .2s; border-radius:2px; }
+ .hamburger[aria-expanded="true"] span:nth-child(1) { transform:translateY(6px) rotate(45deg); }
+ .hamburger[aria-expanded="true"] span:nth-child(2) { opacity:0; }
+ .hamburger[aria-expanded="true"] span:nth-child(3) { transform:translateY(-6px) rotate(-45deg); }
+ .nav-backdrop { display:none; position:fixed; inset:0; background:rgba(15,27,45,0.5); z-index:40; }
+ .nav-backdrop.open { display:block; }
+
+ @media (max-width:1200px) {
+   .ft-grid { grid-template-columns:1fr 1fr; gap:28px; }
+   .brand .tag { display:none; }
+   .hamburger { display:flex; }
+   /* Convert nav to right-side drawer. Tap targets ≥44px. */
+   nav.top {
+     position:fixed; top:72px; right:0; bottom:0; width:min(320px, 85vw);
+     background:#fff; flex-direction:column; align-items:stretch;
+     gap:0; padding:12px 0 24px; box-shadow:-4px 0 24px rgba(0,0,0,0.12);
+     transform:translateX(100%); transition:transform .25s ease;
+     z-index:60; overflow-y:auto;
+   }
+   nav.top.open { transform:translateX(0); }
+   nav.top a, nav.top form { padding:14px 24px; font-size:16px; min-height:48px;
+                             display:flex; align-items:center; border-bottom:1px solid var(--line); }
+   nav.top a:not(.cta) { color:var(--ink); font-weight:500; }
+   nav.top .cta { margin:16px 24px 0; padding:14px 24px; justify-content:center;
+                  border-radius:10px; border-bottom:0; }
+   nav.top form { padding:0; }
+   nav.top form button { padding:14px 24px; width:100%; text-align:left; min-height:48px; font-size:16px; }
+ }
+ {% block style %}{% endblock %}
+</style>
+</head>
+<body>
+{% if impersonator_display %}
+<div style="background:#8c2b23;color:#fff;padding:10px 20px;text-align:center;font-size:14px;font-weight:500;position:sticky;top:0;z-index:9999">
+  🔐 Signed in as <strong>{{ user.display_name|default:user.get_full_name|default:user.username }}</strong>
+  on behalf of {{ impersonator_display }}.
+  <a href="{% url 'stop-impersonating' %}" style="color:#fff;text-decoration:underline;font-weight:700;margin-left:14px">
+    Return to {{ impersonator_display }} &rarr;
+  </a>
+</div>
+{% endif %}
+{% include "content/_intro_overlay.html" %}
+
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <img src="{% static 'apid/apid-logo.png' %}" alt="APID — Academic Publishing &amp; Information Database">
+    </a>
+    <button class="hamburger" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="top" id="site-nav">
+      {% if user.is_authenticated %}
+        <a href="/directory/">Search</a>
+        <a href="/feed/">Feed</a>
+        <a href="/for-you/">For you</a>
+        <a href="/notifications/">Alerts{% if unread_notifications %} <span class="badge">{{ unread_notifications }}</span>{% endif %}</a>
+        <a href="/me/">My Profile</a>
+        {% if office %}<a href="/office/">Office</a>{% endif %}
+        <form method="post" action="/accounts/logout/" style="display:inline;margin:0">{% csrf_token %}
+          <button type="submit">Sign out</button>
+        </form>
+      {% else %}
+        <a href="/about/">About</a>
+        <a href="/apid-profiles/">Profiles</a>
+        <a href="/faqs/">FAQs</a>
+        <a href="/help-center/">Help</a>
+        <a href="/login/">Sign in</a>
+        <a href="/registration/" class="cta">Join APID</a>
+      {% endif %}
+    </nav>
+  </div>
+</header>
+<div class="nav-backdrop" aria-hidden="true"></div>
+
+{% block body %}{% endblock %}
+
+<footer>
+  <div class="wrap">
+    <div class="ft-grid">
+      <div class="ft-col">
+        <div class="ft-brand"><img src="{% static 'apid/apid-logo-footer.png' %}" alt="APID" style="height:36px"></div>
+        <p>Academic Publishing and Information Database — a permanent, verified registry for researchers, scholars and editorial board members.</p>
+      </div>
+      <div class="ft-col"><h4>Product</h4>
+        <a href="/about/">About</a>
+        <a href="/apid-profiles/">Profiles</a>
+        <a href="/eligibility-benefits-and-responsibilities/">Eligibility</a>
+        <a href="/how-to-register-on-apid/">How to register</a>
+      </div>
+      <div class="ft-col"><h4>Policies</h4>
+        <a href="/privacy-policy/">Privacy</a>
+        <a href="/terms-and-conditions/">Terms</a>
+        <a href="/disclaimer/">Disclaimer</a>
+        <a href="/opt-out-preferences/">Cookies</a>
+      </div>
+      <div class="ft-col"><h4>Help</h4>
+        <a href="/faqs/">FAQs</a>
+        <a href="/help-center/">Help center</a>
+        <a href="/contact/">Contact</a>
+      </div>
+    </div>
+    <div class="ft-bottom">
+      <span>© {% now "Y" %} Consortium e-Learning Network Pvt Ltd · All rights reserved</span>
+      <span><a href="/privacy-policy/">Privacy</a> &nbsp;·&nbsp; <a href="/terms-and-conditions/">Terms</a></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var btn = document.querySelector('.hamburger');
+  var nav = document.getElementById('site-nav');
+  var backdrop = document.querySelector('.nav-backdrop');
+  if (!btn || !nav) return;
+  function set(open){
+    btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    nav.classList.toggle('open', open);
+    if (backdrop) backdrop.classList.toggle('open', open);
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  btn.addEventListener('click', function(){ set(btn.getAttribute('aria-expanded') !== 'true'); });
+  if (backdrop) backdrop.addEventListener('click', function(){ set(false); });
+  nav.querySelectorAll('a').forEach(function(a){ a.addEventListener('click', function(){ set(false); }); });
+  // Reset state if viewport grows back above the breakpoint
+  var mq = window.matchMedia('(min-width:1201px)');
+  (mq.addEventListener ? mq.addEventListener.bind(mq, 'change') : mq.addListener.bind(mq))(function(e){ if (e.matches) set(false); });
+})();
+</script>
+
+</body>
+</html>

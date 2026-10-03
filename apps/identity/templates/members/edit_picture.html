@@ -1,0 +1,17 @@
+{% extends "profiles/base.html" %}
+{% block title %}Your photograph · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}
+ .avatar { width:120px; height:120px; border-radius:50%; object-fit:cover; border:1px solid var(--line); margin-bottom:16px; }
+{% endblock %}
+{% block content %}
+<div class="card">
+  <h1>Your photograph</h1>
+  {% if profile.picture %}<img class="avatar" src="{{ MEDIA_URL }}{{ profile.picture }}" alt="">{% endif %}
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}
+    {% include "members/_form.html" %}
+    <p class="muted small">JPEG, PNG, GIF or WebP, up to 5 MB. A new one replaces this.</p>
+    <button type="submit">Upload</button>
+    <a class="btn quiet" href="{% url 'dashboard' %}">Cancel</a>
+  </form>
+</div>
+{% endblock %}

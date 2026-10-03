@@ -1,0 +1,366 @@
+{% extends "profiles/base.html" %}
+{% load static %}
+{% block title %}Your APID — Dashboard{% endblock %}
+{% block style %}
+ .dash-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:40px 0 72px; margin:-40px 0 -56px; }
+ .dash-head .wrap { display:flex; align-items:center; gap:24px; }
+ .dash-head .avatar { width:88px; height:88px; border-radius:50%; object-fit:cover; border:3px solid rgba(255,255,255,0.2); background:#1565c0; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:800; color:#fff; }
+ .dash-head .avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+ .dash-head .who { flex:1; min-width:0; }
+ .dash-head .eyebrow { color:#F5A623; font-size:12px; text-transform:uppercase; letter-spacing:0.1em; font-weight:600; margin-bottom:6px; }
+ .dash-head h1 { color:#fff; font-size:28px; font-weight:800; margin:0 0 4px; letter-spacing:-0.02em; }
+ .dash-head .sub { color:#cbd5e1; font-size:14px; margin:0; }
+ .dash-head .apid-pill { display:inline-block; background:rgba(245,166,35,0.2); color:#F5A623; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; margin-left:8px; letter-spacing:0.04em; }
+ .dash-head .edit-btn { background:rgba(255,255,255,0.15); color:#fff; padding:10px 16px; border-radius:8px; font-size:14px; font-weight:500; text-decoration:none; border:1px solid rgba(255,255,255,0.25); }
+ .dash-head .edit-btn:hover { background:rgba(255,255,255,0.25); color:#fff; }
+
+ .stat-row { display:grid; grid-template-columns:repeat(4, 1fr); gap:16px; margin-bottom:28px; }
+ .stat { background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+ .stat .label { font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; font-weight:600; margin-bottom:6px; }
+ .stat .n { font-size:28px; font-weight:800; color:var(--ink); line-height:1; }
+ .stat .sub { font-size:12px; color:var(--muted); margin-top:4px; }
+
+ .grid2 { display:grid; grid-template-columns:1fr 320px; gap:24px; }
+ .box { background:#fff; border:1px solid var(--line); border-radius:12px; margin-bottom:20px; overflow:hidden; }
+ .box-h { padding:18px 20px 12px; display:flex; align-items:baseline; justify-content:space-between; }
+ .box-h h3 { font-size:16px; font-weight:700; margin:0; }
+ .box-h a { font-size:13px; color:var(--primary); font-weight:500; }
+
+ .appt-list .row { padding:14px 20px; border-top:1px solid var(--line); }
+ .appt-list .row:first-child { border-top:0; }
+ .appt-list .top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+ .appt-list .jname { font-weight:600; font-size:15px; color:var(--ink); }
+ .appt-list .meta { color:var(--muted); font-size:13px; margin-top:3px; }
+ .appt-list .role { font-size:11px; text-transform:uppercase; letter-spacing:0.06em; font-weight:700; color:var(--primary-dark); background:var(--primary-light); padding:3px 10px; border-radius:999px; white-space:nowrap; }
+ .appt-list .dls { margin-top:10px; display:flex; gap:8px; flex-wrap:wrap; }
+ .dl-btn { font-size:12px; font-weight:600; padding:6px 12px; border-radius:6px; border:1px solid var(--line); color:var(--ink); text-decoration:none; display:inline-flex; align-items:center; gap:6px; }
+ .dl-btn:hover { border-color:var(--primary); color:var(--primary); }
+ .dl-btn.yellow { background:#fff4de; border-color:#f0d58f; color:#8a5a06; }
+ .dl-btn.yellow:hover { background:#F5A623; color:#000; }
+
+ .app-list .row { padding:14px 20px; border-top:1px solid var(--line); display:flex; justify-content:space-between; align-items:center; gap:12px; }
+ .app-list .row:first-child { border-top:0; }
+ .app-list .where { flex:1; min-width:0; }
+ .app-list .where .what { font-weight:600; font-size:14px; color:var(--ink); }
+ .app-list .where .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ .state-pill { font-size:11px; text-transform:uppercase; font-weight:700; letter-spacing:0.04em; padding:3px 10px; border-radius:999px; white-space:nowrap; }
+ .state-pill.ok { background:#d1fae5; color:#065f46; }
+ .state-pill.pending { background:#fef3c7; color:#92400e; }
+ .state-pill.review { background:#dbeafe; color:#1e40af; }
+ .state-pill.no { background:#fee2e2; color:#991b1b; }
+
+ .pub-list { padding:14px 20px; }
+ .pub-list .row { padding:10px 0; border-top:1px solid var(--line); font-size:14px; }
+ .pub-list .row:first-child { border-top:0; }
+ .pub-list .title { font-weight:500; color:var(--ink); line-height:1.4; }
+ .pub-list .year { color:var(--muted); font-size:12px; }
+
+ .quick-actions { display:grid; gap:10px; padding:14px 20px 20px; }
+ .quick-actions a { padding:12px 14px; border:1px solid var(--line); border-radius:8px; color:var(--ink); text-decoration:none; display:flex; align-items:center; gap:12px; font-size:14px; font-weight:500; }
+ .quick-actions a:hover { border-color:var(--primary); color:var(--primary); background:rgba(30,136,229,0.03); }
+ .quick-actions a .ico { font-size:18px; width:24px; text-align:center; }
+
+ .empty-small { padding:20px; text-align:center; color:var(--muted); font-size:13px; }
+
+ .inv-list .row { padding:14px 20px; border-top:1px solid var(--line); }
+ .inv-list .row:first-child { border-top:0; }
+ .inv-list .top { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
+ .inv-list .jname { font-weight:600; font-size:14px; color:var(--ink); }
+ .inv-list .btn-group { margin-top:10px; display:flex; gap:8px; }
+
+ /* wisp 2026-10-02 pm: share / invite */
+ .share-wrap { padding:14px 20px 20px; display:grid; gap:8px; }
+ .share-btn { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--line);
+              border-radius:8px; color:var(--ink); text-decoration:none; font-size:14px; font-weight:500;
+              background:#fff; cursor:pointer; font-family:inherit; width:100%; text-align:left; }
+ .share-btn:hover { border-color:var(--primary); color:var(--primary); background:rgba(30,136,229,0.03); text-decoration:none; }
+ .share-btn.copy.ok { background:#d1fae5; color:#065f46; border-color:#10b981; }
+ .share-btn .ico { font-size:16px; width:22px; text-align:center; flex:none; }
+ .share-url { padding:10px 20px 0; }
+ .share-url input { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:8px;
+                    font-size:13px; font-family:inherit; background:#f8fafc; color:var(--muted); }
+ .ref-count { padding:12px 20px; background:#f8fafc; border-top:1px solid var(--line); display:flex;
+              justify-content:space-between; align-items:baseline; }
+ .ref-count .n { font-size:22px; font-weight:800; color:var(--primary); }
+ .ref-count .lbl { font-size:12px; color:var(--muted); }
+
+ @media (max-width:1024px) { .grid2 { grid-template-columns:1fr; } .stat-row { grid-template-columns:repeat(2, 1fr); } }
+ @media (max-width:560px) { .stat-row { grid-template-columns:1fr; } }
+{% endblock %}
+
+{% block content %}
+
+<div class="dash-head">
+  <div class="wrap">
+    {% if profile.picture %}
+      <div class="avatar"><img src="/media/{{ profile.picture }}" alt=""></div>
+    {% else %}
+      <div class="avatar">{{ member.display_name|slice:":1"|upper }}</div>
+    {% endif %}
+    <div class="who">
+      <div class="eyebrow">Your APID dashboard</div>
+      <h1>{{ member.display_name|default:member.username }}<span class="apid-pill">APID {{ member.apid }}</span></h1>
+      <p class="sub">
+        {% if profile.designation %}{{ profile.designation }}{% endif %}
+        {% if profile.affiliation %}{% if profile.designation %} · {% endif %}{{ profile.affiliation }}{% endif %}
+        {% if not profile.designation and not profile.affiliation %}Complete your profile to appear in the public directory.{% endif %}
+      </p>
+    </div>
+    <a href="/me/profile/" class="edit-btn">Edit profile →</a>
+  </div>
+</div>
+
+<div class="wrap">
+
+<div class="stat-row">
+  <div class="stat">
+    <div class="label">Active appointments</div>
+    <div class="n">{{ appointments|length }}</div>
+    <div class="sub">Editorial boards you serve on</div>
+  </div>
+  <div class="stat">
+    <div class="label">Publications</div>
+    <div class="n">{{ publication_count|default:0 }}</div>
+    <div class="sub">Papers, chapters &amp; conferences</div>
+  </div>
+  <div class="stat">
+    <div class="label">Pending applications</div>
+    <div class="n">
+      {% with pending=0 %}
+        {% for a in applications %}{% if a.status == "new" or a.status == "under_review" %}{% with pending=pending|add:1 %}{% endwith %}{% endif %}{% endfor %}
+        {{ applications|length }}
+      {% endwith %}
+    </div>
+    <div class="sub">Board applications in review</div>
+  </div>
+  <div class="stat">
+    <div class="label">Invitations</div>
+    <div class="n">{{ invitations|length }}</div>
+    <div class="sub">Boards inviting you to join</div>
+  </div>
+</div>
+
+<div class="grid2">
+
+<div>
+
+<!-- APPOINTMENTS with certificate/letter download -->
+<div class="box">
+  <div class="box-h">
+    <h3>Editorial board appointments</h3>
+    {% if is_journal_manager %}<a href="/office/">Open office →</a>{% endif %}
+  </div>
+  {% if appointments %}
+    <div class="appt-list">
+      {% for a in appointments %}
+        <div class="row">
+          <div class="top">
+            <div>
+              <div class="jname">{{ a.journal.title }}</div>
+              <div class="meta">Since {{ a.started_on|date:"M Y"|default:"—" }}</div>
+            </div>
+            <span class="role">{{ a.role }}</span>
+          </div>
+          <div class="dls">
+            <a class="dl-btn yellow" href="/documents/appointments/{{ a.id }}/certificate.pdf" target="_blank">📜 Certificate</a>
+            <a class="dl-btn" href="/documents/appointments/{{ a.id }}/letter.pdf" target="_blank">📄 Empanelment letter</a>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-small">You are not currently serving on any editorial board. <a href="/apply/">Apply to a board →</a></div>
+  {% endif %}
+</div>
+
+<!-- APPLICATIONS from mng -->
+<div class="box">
+  <div class="box-h"><h3>Your board applications</h3><a href="/apply/">New application →</a></div>
+  {% if applications %}
+    <div class="app-list">
+      {% for app in applications %}
+        <div class="row">
+          <div class="where">
+            <div class="what">{% if app.journal_title %}{{ app.journal_title }}{% else %}Application #{{ app.id }}{% endif %}</div>
+            <div class="meta">{{ app.applying_for|default:app.role|default:"Editorial role" }}{% if app.subject %} · {{ app.subject }}{% endif %}{% if app.submitted_at %} · Submitted {{ app.submitted_at|date:"d M Y" }}{% endif %}</div>
+          </div>
+          {% if app.status == "accepted" %}<span class="state-pill ok">Accepted</span>
+          {% elif app.status == "declined" %}<span class="state-pill no">Not accepted</span>
+          {% elif app.status == "under_review" %}<span class="state-pill review">Under review</span>
+          {% elif app.status == "new" %}<span class="state-pill pending">Pending</span>
+          {% else %}<span class="state-pill pending">{{ app.state_label }}</span>{% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-small">No applications yet. <a href="/apply/">Apply to join an editorial board →</a></div>
+  {% endif %}
+</div>
+
+<!-- INVITATIONS -->
+{% if invitations %}
+<div class="box">
+  <div class="box-h"><h3>Invitations to serve</h3></div>
+  <div class="inv-list">
+    {% for inv in invitations %}
+      <div class="row">
+        <div class="top">
+          <div><div class="jname">{{ inv.journal_title }}</div><div class="meta">{{ inv.role }} · Invited {{ inv.invited_at|date:"d M Y" }}</div></div>
+          <span class="state-pill pending">New</span>
+        </div>
+        <div class="btn-group">
+          <a href="/invites/{{ inv.token }}/" class="btn" style="padding:7px 14px;font-size:13px">Review invitation</a>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- RECENT PUBLICATIONS -->
+<div class="box">
+  <div class="box-h"><h3>Recent publications</h3><a href="/me/publications/">See all ({{ publication_count|default:0 }}) →</a></div>
+  {% if publications %}
+    <div class="pub-list">
+      {% for p in publications %}
+        <div class="row">
+          <div class="title">{{ p.title }}</div>
+          <div class="year">{% if p.year %}{{ p.year }}{% endif %}{% if p.venue %} · {{ p.venue }}{% endif %}</div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="empty-small">No publications yet. <a href="/me/publications/add/">Add a publication →</a> or <a href="/me/publications/orcid/">sync from ORCID</a></div>
+  {% endif %}
+</div>
+
+</div>
+
+<div>
+
+<!-- QUICK ACTIONS SIDEBAR -->
+<div class="box">
+  <div class="box-h"><h3>Quick actions</h3></div>
+  <div class="quick-actions">
+    <a href="/me/profile/"><span class="ico">✏️</span>Edit profile</a>
+    <a href="/me/photograph/"><span class="ico">📷</span>Update photograph</a>
+    <a href="/me/publications/"><span class="ico">📚</span>Manage publications</a>
+    <a href="/me/publications/orcid/"><span class="ico">🔗</span>Sync ORCID</a>
+    <a href="/apply/"><span class="ico">🎓</span>Apply to a board</a>
+    <a href="/profiles/{{ member.apid }}/"><span class="ico">👁</span>View public profile</a>
+    <a href="/feed/"><span class="ico">💬</span>Open feed</a>
+    <a href="/notifications/"><span class="ico">🔔</span>Notifications</a>
+    {% if is_journal_manager or office %}
+      <a href="/office/" style="border-color:var(--primary);background:var(--primary-light);color:var(--primary-dark);font-weight:600"><span class="ico">🏛</span>Editorial Office</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- APID ID CARD -->
+<div class="box" style="background:linear-gradient(135deg, #F5A623 0%, #d48806 100%);color:#fff">
+  <div style="padding:22px">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;opacity:0.9;font-weight:600;margin-bottom:6px">Your permanent APID</div>
+    <div style="font-size:28px;font-weight:800;letter-spacing:0.02em">APID {{ member.apid }}</div>
+    <div style="font-size:12px;opacity:0.9;margin-top:8px">Print this in papers, add to CV, share with collaborators.<br>Resolves to <code style="background:rgba(0,0,0,0.15);padding:1px 6px;border-radius:4px">apid.celnet.in/profiles/{{ member.apid }}/</code></div>
+  </div>
+</div>
+
+{# wisp 2026-10-02 pm: share your profile #}
+<div class="box">
+  <div class="box-h"><h3>Share your profile</h3></div>
+  <div class="share-url">
+    <input type="text" value="{{ profile_url }}" readonly onclick="this.select()">
+  </div>
+  <div class="share-wrap">
+    <button type="button" class="share-btn copy" data-copy="{{ profile_url }}">
+      <span class="ico">🔗</span>Copy profile link
+    </button>
+    <a class="share-btn" target="_blank" rel="noopener"
+       href="https://www.linkedin.com/sharing/share-offsite/?url={{ profile_url|urlencode }}">
+      <span class="ico">in</span>Share on LinkedIn
+    </a>
+    <a class="share-btn" target="_blank" rel="noopener"
+       href="https://twitter.com/intent/tweet?text={{ share_tagline|urlencode }}&url={{ profile_url|urlencode }}">
+      <span class="ico">𝕏</span>Share on Twitter / X
+    </a>
+    <a class="share-btn" target="_blank" rel="noopener"
+       href="https://wa.me/?text={{ share_tagline|urlencode }}%20{{ profile_url|urlencode }}">
+      <span class="ico">💬</span>Share on WhatsApp
+    </a>
+    <a class="share-btn"
+       href="mailto:?subject=My%20APID%20profile&body={{ share_tagline|urlencode }}%0A%0A{{ profile_url|urlencode }}">
+      <span class="ico">✉</span>Share by email
+    </a>
+    <a class="share-btn" href="{{ profile_url }}qr.png" download="apid-{{ member.apid|lower }}-qr.png">
+      <span class="ico">⬚</span>Download QR code
+    </a>
+    <a class="share-btn" href="{{ profile_url }}card.png" download="apid-{{ member.apid|lower }}-card.png">
+      <span class="ico">🖼</span>Download share card
+    </a>
+  </div>
+</div>
+
+{# wisp 2026-10-02 pm: invite colleagues #}
+<div class="box">
+  <div class="box-h"><h3>Invite colleagues to APID</h3></div>
+  <div style="padding:0 20px;font-size:13px;color:var(--muted);line-height:1.55">
+    When someone signs up through your invite link, they are credited as your referral.
+  </div>
+  <div class="share-url">
+    <input type="text" value="{{ invite_url }}" readonly onclick="this.select()">
+  </div>
+  <div class="share-wrap">
+    <button type="button" class="share-btn copy" data-copy="{{ invite_url }}">
+      <span class="ico">🔗</span>Copy invite link
+    </button>
+    <a class="share-btn" target="_blank" rel="noopener"
+       href="https://wa.me/?text={{ invite_tagline|urlencode }}">
+      <span class="ico">💬</span>Invite via WhatsApp
+    </a>
+    <a class="share-btn"
+       href="mailto:?subject=Join%20me%20on%20APID&body={{ invite_tagline|urlencode }}">
+      <span class="ico">✉</span>Invite via email
+    </a>
+    <a class="share-btn" target="_blank" rel="noopener"
+       href="https://www.linkedin.com/sharing/share-offsite/?url={{ invite_url|urlencode }}">
+      <span class="ico">in</span>Invite via LinkedIn
+    </a>
+  </div>
+  <div class="ref-count">
+    <span class="lbl">Scholars you brought in</span>
+    <span class="n">{{ referral_count|default:0 }}</span>
+  </div>
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<script>
+(function(){
+  // Clipboard-copy for the share widget. Event-delegated so added-later buttons work too.
+  document.addEventListener("click", function(e){
+    var btn = e.target.closest(".share-btn.copy");
+    if (!btn) return;
+    e.preventDefault();
+    var url = btn.getAttribute("data-copy") || "";
+    var done = function(){
+      var original = btn.innerHTML;
+      btn.classList.add("ok");
+      btn.innerHTML = '<span class="ico">✓</span>Copied';
+      setTimeout(function(){ btn.classList.remove("ok"); btn.innerHTML = original; }, 1800);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(done, function(){});
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = url; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); done(); } catch(_){}
+      document.body.removeChild(ta);
+    }
+  });
+})();
+</script>
+{% endblock %}

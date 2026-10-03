@@ -1,0 +1,73 @@
+{% extends "profiles/base.html" %}
+{% block title %}APID — Academic Profile Identity Directory{% endblock %}
+{% block style %}
+ .hero { text-align:center; padding:44px 0 32px; }
+ .hero h1 { font-size:30px; margin:0 0 10px; }
+ .hero p { color:var(--muted); max-width:520px; margin:0 auto 28px; font-size:15px; }
+ .hero-btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
+ .btn-primary { padding:11px 26px; background:var(--accent); color:#fff; border-radius:8px;
+                font-size:15px; font-weight:600; }
+ .btn-secondary { padding:11px 26px; border:1px solid var(--line); border-radius:8px;
+                  font-size:15px; background:#fff; color:var(--ink); }
+ .btn-primary:hover,.btn-secondary:hover { text-decoration:none; opacity:.9; }
+ .section-head { display:flex; align-items:baseline; gap:10px; margin:36px 0 18px; }
+ .section-head h2 { font-size:18px; margin:0; }
+ .section-head span { color:var(--muted); font-size:13px; }
+ .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:16px; }
+ .pcard { background:#fff; border:1px solid var(--line); border-radius:10px;
+          padding:18px 16px; display:flex; flex-direction:column; align-items:center;
+          text-align:center; gap:8px; }
+ .pcard:hover { border-color:var(--accent); }
+ .pcard img,.pcard .ph { width:64px; height:64px; border-radius:50%; object-fit:cover;
+                         background:#eef2f6; border:1px solid var(--line); }
+ .pcard .name { font-weight:600; font-size:14px; color:var(--ink); line-height:1.3; }
+ .pcard .desg { font-size:12px; color:var(--muted); }
+ .pcard .org  { font-size:12px; color:var(--muted); }
+ .more-bar { margin:28px 0 0; background:#fff; border:1px solid var(--line); border-radius:10px;
+             padding:24px; text-align:center; }
+ .more-bar p { margin:0 0 14px; color:var(--muted); font-size:14px; }
+{% endblock %}
+{% block content %}
+<div class="hero">
+  <h1>Academic Profile Identity Directory</h1>
+  <p>A verified registry of researchers, authors and editorial board members from
+     across the STM Journals ecosystem.</p>
+  <div class="hero-btns">
+    {% if user.is_authenticated %}
+      <a class="btn-primary" href="/me/">My Profile</a>
+      <a class="btn-secondary" href="/directory/">Search All Members</a>
+    {% else %}
+      <a class="btn-primary" href="/accounts/login/">Sign in</a>
+      <a class="btn-secondary" href="/accounts/register/">Create Profile</a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="section-head">
+  <h2>Featured profiles</h2>
+</div>
+
+<div class="grid">
+{% for p in showcase %}
+  <a class="pcard" href="/profiles/{{ p.member.apid }}/" style="text-decoration:none">
+    {% if p.picture %}
+      <img src="/media/{{ p.picture }}" alt="{{ p.member.display_name }}">
+    {% else %}
+      <div class="ph"></div>
+    {% endif %}
+    <div class="name">{{ p.member.title }}{% if p.member.title %} {% endif %}{{ p.member.display_name }}</div>
+    {% if p.designation %}<div class="desg">{{ p.designation }}</div>{% endif %}
+    {% if p.affiliation %}<div class="org">{{ p.affiliation|truncatechars:42 }}</div>{% endif %}
+  </a>
+{% empty %}
+  <p class="muted small">No profiles yet.</p>
+{% endfor %}
+</div>
+
+{% if not user.is_authenticated %}
+<div class="more-bar">
+  <p>Sign in to search the full directory by name, affiliation or expertise.</p>
+  <a class="btn-primary" href="/accounts/login/">Sign in to search</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: A4 landscape; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 297mm; height: 210mm; font-family: 'Times New Roman', Times, serif; color: #1a1a1a; }
+.outer {
+  width: 100%;
+  height: 100%;
+  padding: 12mm;
+}
+.cert {
+  width: 100%;
+  height: 100%;
+  border: 7px double #1a3a6e;
+  padding: 10mm;
+}
+.inner {
+  width: 100%;
+  height: 100%;
+  border: 1px solid #c9a227;
+  padding: 10mm 16mm;
+  text-align: center;
+  display: table;
+}
+.inner-cell {
+  display: table-cell;
+  vertical-align: middle;
+}
+.org { font-size: 11pt; color: #555; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 4px; }
+.cert-title { font-size: 30pt; font-family: Georgia, serif; color: #1a3a6e; margin: 10px 0 6px; letter-spacing: .5px; }
+.cert-subtitle { font-size: 10pt; color: #888; text-transform: uppercase; letter-spacing: .12em; margin-bottom: 24px; }
+.intro { font-size: 13pt; margin-bottom: 8px; color: #333; }
+.name {
+  font-size: 32pt; font-style: italic; color: #1a3a6e;
+  margin: 10px 0 4px; padding-bottom: 6px;
+  border-bottom: 1px solid #1a3a6e;
+  display: inline-block;
+  padding-left: 32px; padding-right: 32px;
+}
+.credentials { font-size: 11pt; color: #555; margin: 6px 0 20px; }
+.middle { font-size: 13pt; margin-bottom: 6px; color: #333; }
+.journal { font-size: 18pt; font-weight: bold; color: #1a1a1a; margin: 4px 0 8px; }
+.role-line { font-size: 10pt; color: #555; margin-bottom: 4px; }
+.role { font-size: 16pt; color: #1a3a6e; font-weight: bold; margin-bottom: 4px; }
+.dates { font-size: 10pt; color: #777; margin-top: 18px; }
+.footer-table { width: 100%; margin-top: 30px; }
+.footer-table td { vertical-align: bottom; }
+.seal {
+  text-align: left; font-size: 10pt; color: #333;
+  border-top: 1px solid #1a3a6e; padding-top: 3px;
+  line-height: 1.4;
+}
+.seal .sig-name { font-weight: bold; font-size: 11pt; color: #1a3a6e; display:block; margin-bottom:1px; }
+.seal .sig-title { font-size: 9pt; color: #666; }
+.seal .sig-journal { font-size: 9pt; color: #555; font-style: italic; }
+.seal .sig-imprint { font-size: 8.5pt; color: #888; margin-top: 2px; }
+.issued { font-size: 9pt; color: #666; text-align: right;
+          border-top: 1px solid #e3e8ee; padding-top: 6px; }
+.cert-id { font-size: 8pt; color: #999; margin-top: 4px; font-family: monospace; letter-spacing: .5px; }
+/* position relative to .inner so the logo + watermark sit inside the gold frame */
+.inner { position: relative; }
+.logo-corner {
+  position: absolute; top: 6mm; left: 8mm;
+  width: 44px; height: 44px;
+  z-index: 2;
+}
+.watermark {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 320px; height: 320px;
+  margin: -160px 0 0 -160px;
+  opacity: 0.07;
+  z-index: 0;
+  pointer-events: none;
+}
+.inner-cell { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+<div class="outer">
+  <div class="cert">
+    <div class="inner">
+      {% if logo_data_url %}
+        <img class="watermark" src="{{ logo_data_url }}" alt="">
+        <img class="logo-corner" src="{{ logo_data_url }}" alt="APID">
+      {% endif %}
+      <div class="inner-cell">
+        <div class="org">Consortium e-Learning Network Pvt Ltd &bull; STM Journals (imprint)</div>
+        <div class="cert-title">Editorial Certificate</div>
+        <div class="cert-subtitle">Certificate of Editorial Board Membership</div>
+
+        <div class="intro">This is to certify that</div>
+        <div><span class="name">{{ member.display_name }}</span></div>
+
+        {% if profile.designation or profile.affiliation %}
+          <div class="credentials">
+            {% if profile.designation %}{{ profile.designation }}{% endif %}{% if profile.designation and profile.affiliation %}, {% endif %}{% if profile.affiliation %}{{ profile.affiliation }}{% endif %}
+          </div>
+        {% endif %}
+
+        <div class="middle">is an appointed member of the Editorial Board of</div>
+        <div class="journal">{{ journal.title }}</div>
+        <div class="role-line">in the capacity of</div>
+        <div class="role">{{ appointment.role|title }}</div>
+
+        {% if appointment.started_on %}
+          <div class="dates">
+            Effective from {{ appointment.started_on|date:"j F Y" }}{% if appointment.ended_on %} to {{ appointment.ended_on|date:"j F Y" }}{% else %} &mdash; ongoing{% endif %}
+          </div>
+        {% endif %}
+
+        <table class="footer-table">
+          <tr>
+            <td class="seal" style="width:40%">
+              <span class="sig-name">{{ sig.signatory_name|default:"Editorial Office" }}</span>
+              {% if sig.signatory_title %}<span class="sig-title">{{ sig.signatory_title }}</span><br>{% endif %}
+              <span class="sig-journal">{{ journal.title }}</span><br>
+              <span class="sig-imprint">{{ sig.imprint_name|default:"Consortium e-Learning Network Pvt Ltd &middot; STM Journals imprint" }}</span>
+            </td>
+            <td class="qr-cell" style="width:20%; text-align:center; vertical-align:bottom">
+              <img src="{{ qr_data_url }}" alt="Verify" style="width:95px; height:95px;">
+              <div style="font-size:8pt; color:#666; margin-top:4px; letter-spacing:.1em; font-weight:600">
+                SCAN TO VERIFY
+              </div>
+            </td>
+            <td class="issued" style="width:40%">
+              Issued: {{ today|date:"j F Y" }}
+              <div class="cert-id">APID: {{ member.apid }} &nbsp;|&nbsp; ID: CELNET-EC-{{ appointment.pk }}</div>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

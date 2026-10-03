@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+@page { size: A4; margin: 18mm 22mm 15mm; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; color: #1a1a1a; line-height: 1.45; position: relative; }
+.watermark {
+  position: fixed;
+  top: 45%; left: 50%;
+  width: 320px; height: 320px;
+  margin: -160px 0 0 -160px;
+  opacity: 0.06;
+  z-index: -1;
+}
+.letterhead { text-align: center; border-bottom: 2px solid #1a3a6e; padding-bottom: 10px; margin-bottom: 18px; }
+.org { font-size: 16pt; font-weight: bold; color: #1a3a6e; letter-spacing: .3px; }
+.tagline { font-size: 8.5pt; color: #555; letter-spacing: .08em; text-transform: uppercase; margin-top: 2px; }
+.date { margin-bottom: 12px; font-size: 10.5pt; }
+.ref { color: #666; font-size: 9.5pt; margin-bottom: 14px; }
+p { margin-bottom: 9px; }
+.to { margin-bottom: 14px; }
+.subject { font-weight: bold; font-size: 11pt; margin-bottom: 14px; }
+.salutation { margin-bottom: 10px; }
+.sig { margin-top: 24px; }
+.sig-name { font-weight: bold; margin-top: 24px; }
+.footer { font-size: 8.5pt; color: #aaa; border-top: 1px solid #e0e0e0; padding-top: 6px; text-align: center; margin-top: 14px; }
+.bottom-block { position: fixed; bottom: 0; left: 0; right: 0; }
+.bottom-block .sig { margin-top: 0; }
+.bottom-block .sig-name { margin-top: 16px; }
+</style>
+</head>
+<body>
+
+{% if logo_data_url %}<img class="watermark" src="{{ logo_data_url }}" alt="">{% endif %}
+
+<div class="letterhead" style="position:relative; text-align:left; padding-left:60px; min-height:50px;">
+  {% if logo_data_url %}
+    <img src="{{ logo_data_url }}" alt="APID"
+         style="position:absolute; left:0; top:0; width:48px; height:48px;">
+  {% endif %}
+  <div class="org">Consortium e-Learning Network Pvt Ltd</div>
+  <div class="tagline">STM Journals (imprint) &middot; apid.journalslibrary.com</div>
+  <img src="{{ qr_data_url }}" alt="Verify"
+       style="position:absolute; right:0; top:-4px; width:56px; height:56px;">
+</div>
+
+<div class="date">{{ today|date:"j F Y" }}</div>
+
+<div class="ref">Ref: CELNET/APID/{{ appointment.pk }}/{{ today.year }}</div>
+
+<div class="to">
+  To,<br>
+  <strong>{{ member.display_name }}</strong>
+  {% if profile.designation %}<br>{{ profile.designation }}{% endif %}
+  {% if profile.affiliation %}<br>{{ profile.affiliation }}{% endif %}
+</div>
+
+<div class="subject">
+  Subject: Letter of Empanelment — {{ appointment.role|title }}, <em>{{ journal.title }}</em>
+</div>
+
+<div class="salutation">Dear {{ member.display_name }},</div>
+
+<p>We are pleased to inform you that you have been empanelled as
+<strong>{{ appointment.role|title }}</strong> of
+<em>{{ journal.title }}</em>{% if journal.abbreviation %} ({{ journal.abbreviation }}){% endif %},
+published by Consortium e-Learning Network Pvt Ltd (STM Journals imprint).{% if appointment.started_on %}
+Your appointment is effective from <strong>{{ appointment.started_on|date:"j F Y" }}</strong>.{% endif %}</p>
+
+<p>As {{ appointment.role|title }}, you will contribute to maintaining the scholarly standards and
+quality of the journal by reviewing manuscripts in your area of expertise, guiding authors,
+and participating in editorial decisions as required. We greatly value your expertise and
+look forward to your continued contribution to the journal's growth.</p>
+
+<p>Please find your Editorial Certificate enclosed. You are welcome to use these documents for
+your academic records and institutional reporting purposes.</p>
+
+<p>For any queries regarding your editorial role, please write to the editorial office.</p>
+
+<p>Thanking you,</p>
+
+<div class="bottom-block">
+  <div class="sig">
+    Yours sincerely,
+    <div style="margin-top:30px; width:220px; border-bottom:1px solid #333;"></div>
+    <div class="sig-name" style="margin-top:4px">
+      <strong style="font-size:11pt; color:#1a3a6e">{{ sig.signatory_name|default:"Editorial Office" }}</strong><br>
+      {% if sig.signatory_title %}{{ sig.signatory_title }}<br>{% endif %}
+      <em>{{ journal.title }}</em><br>
+      <span style="font-size:9.5pt; color:#666">{{ sig.imprint_name|default:"Consortium e-Learning Network Pvt Ltd" }}</span>
+    </div>
+  </div>
+  <div class="footer">
+    APID: {{ member.apid }} · Appointment ID: {{ appointment.pk }} · Generated: {{ today|date:"j F Y" }} · This is a system-generated letter.
+  </div>
+</div>
+
+</body>
+</html>

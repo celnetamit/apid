@@ -1,0 +1,21 @@
+{% extends "profiles/base.html" %}
+{% block title %}{{ journal.title }} · APID{% endblock %}
+{% block style %}{% include "members/_style.html" %}{% endblock %}
+{% block content %}
+<p class="small"><a href="{% url 'boards' %}">← All boards</a></p>
+<div class="card">
+  <h1>{{ journal.title }}</h1>
+  <p class="muted small">{{ journal.subject }}{% if journal.abbreviation %} · {{ journal.abbreviation }}{% endif %}</p>
+  <h2>Serving now</h2>
+  {% for a in serving %}
+    <div class="row small"><a href="{% url 'profile' a.member.apid %}">{{ a.member.display_name }}</a>
+      — {{ a.role }}{% if a.started_on %} <span class="muted">since {{ a.started_on|date:"M Y" }}</span>{% endif %}
+      <div class="muted">{{ a.member.profile.affiliation }}</div></div>
+  {% empty %}<p class="muted small">Nobody is currently serving on this board.</p>{% endfor %}
+  {% if past %}
+    <h2>Previously</h2>
+    {% for a in past %}<div class="row small">{{ a.member.display_name }} — {{ a.role }}
+      <span class="muted">to {{ a.ended_on|date:"M Y" }}</span></div>{% endfor %}
+  {% endif %}
+</div>
+{% endblock %}

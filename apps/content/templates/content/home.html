@@ -1,0 +1,128 @@
+{% extends "content/base.html" %}
+{% load static %}
+{% block title %}APID — Academic Publishing &amp; Information Database{% endblock %}
+{% block style %}
+ .hero { position:relative; min-height:520px; display:flex; align-items:center; overflow:hidden; }
+ .hero .bgimg { position:absolute; inset:0; background:url('{% static "apid/images/unsplash-1481627834876.jpg" %}') center/cover no-repeat; }
+ .hero .veil { position:absolute; inset:0; background:linear-gradient(135deg, rgba(15,27,45,0.92) 0%, rgba(21,101,192,0.78) 100%); }
+ .hero .wrap { position:relative; z-index:2; padding:72px 24px; color:#fff; max-width:900px; }
+ .hero h1 { color:#fff; font-size:52px; font-weight:800; line-height:1.1; margin:0 0 18px; }
+ .hero h1 .accent { color:#F5A623; }
+ .hero .sub { color:#dbeafe; font-size:19px; margin:0 0 28px; max-width:620px; }
+ .hero .ctas { display:flex; gap:12px; flex-wrap:wrap; margin-bottom:22px; }
+ .hero .btn { padding:14px 24px; font-size:16px; }
+ .mini-info { color:#dbeafe; font-size:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+ .mini-info .dot { width:8px; height:8px; border-radius:50%; background:#22c55e; display:inline-block; }
+
+ .stats { background:var(--ink); color:#fff; padding:36px 0; }
+ .stats .wrap { display:grid; grid-template-columns:repeat(4,1fr); gap:32px; text-align:center; padding:0 24px; }
+ .stats .n { font-size:36px; font-weight:800; color:var(--accent); margin-bottom:4px; }
+ .stats .l { font-size:13px; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.08em; }
+
+ .section { padding:72px 0; }
+ .section-head { text-align:center; max-width:720px; margin:0 auto 48px; padding:0 24px; }
+ .section-head .eyebrow { color:var(--primary); font-weight:600; text-transform:uppercase; letter-spacing:0.08em; font-size:13px; margin-bottom:12px; }
+ .section-head h2 { font-size:36px; font-weight:800; margin-bottom:14px; }
+ .section-head p { color:var(--muted); font-size:17px; margin:0; }
+ .cards { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+ .card { background:#fff; border:1px solid var(--line); border-radius:14px; padding:28px; transition:all .2s; }
+ .card:hover { border-color:var(--primary); box-shadow:0 12px 30px rgba(15,27,45,0.08); transform:translateY(-2px); }
+ .card .ico { width:48px; height:48px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; margin-bottom:16px; }
+ .card .ico.blue { background:var(--primary-light); color:var(--primary); }
+ .card .ico.yellow { background:#fff4de; color:var(--accent-dark); }
+ .card .ico.red { background:#fde7eb; color:var(--danger); }
+ .card h3 { font-size:19px; font-weight:700; margin-bottom:8px; }
+ .card p { color:var(--muted); margin:0; font-size:15px; }
+
+ .split { background:var(--soft); padding:72px 0; }
+ .split .wrap { display:grid; grid-template-columns:1fr 1fr; gap:60px; align-items:center; }
+ .split h2 { font-size:32px; font-weight:800; margin-bottom:14px; }
+ .split p { color:var(--muted); font-size:16px; margin-bottom:18px; }
+ .split ul { list-style:none; padding:0; margin:0; }
+ .split li { display:flex; gap:12px; padding:10px 0; font-size:15px; }
+ .split li svg { flex-shrink:0; margin-top:3px; color:var(--primary); }
+ .split img { width:100%; max-width:460px; display:block; margin:0 auto; border-radius:12px; }
+
+ .cta-block { background:linear-gradient(135deg, var(--primary) 0%, #0d47a1 100%); color:#fff; text-align:center; padding:72px 24px; }
+ .cta-block h2 { color:#fff; font-size:34px; font-weight:800; margin-bottom:14px; }
+ .cta-block p { color:#dbeafe; font-size:17px; margin:0 auto 28px; max-width:580px; }
+
+ @media (max-width:1200px) {
+   .hero { min-height:auto; }
+   .hero .wrap { padding:56px 24px; }
+   .hero h1 { font-size:34px; }
+   .hero .sub { font-size:16px; }
+   .stats .wrap { grid-template-columns:repeat(2,1fr); gap:24px; }
+   .section { padding:48px 0; }
+   .section-head h2 { font-size:26px; }
+   .cards { grid-template-columns:1fr; padding:0 24px; }
+   .split { padding:48px 0; }
+   .split .wrap { grid-template-columns:1fr; gap:28px; }
+   .split h2 { font-size:24px; }
+   .cta-block { padding:48px 20px; }
+   .cta-block h2 { font-size:26px; }
+ }
+{% endblock %}
+{% block body %}
+<section class="hero">
+  <div class="bgimg"></div><div class="veil"></div>
+  <div class="wrap">
+    <h1>Your <span class="accent">Academic Portfolio</span>, in one permanent place.</h1>
+    <p class="sub">APID is a verified registry for researchers, scholars, academicians and students — build a lasting academic identity, network with peers, and showcase your contributions.</p>
+    <div class="ctas">
+      <a href="/registration/" class="btn btn-accent">Create your profile →</a>
+      <a href="/about/" class="btn btn-outline">Learn more</a>
+    </div>
+    <div class="mini-info"><span class="dot"></span>Free &amp; permanent · ORCID-compatible · 13,400+ members</div>
+  </div>
+</section>
+
+<section class="stats">
+  <div class="wrap">
+    <div><div class="n">{{ member_count|default:"13,400+" }}</div><div class="l">Verified Scholars</div></div>
+    <div><div class="n">276</div><div class="l">Journals</div></div>
+    <div><div class="n">5,114</div><div class="l">Legacy Profiles</div></div>
+    <div><div class="n">∞</div><div class="l">Permanent IDs</div></div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap">
+    <div class="section-head">
+      <div class="eyebrow">What you can do</div>
+      <h2>Everything an academic needs, in one profile</h2>
+      <p>From your first paper to your editorial-board appointments — APID keeps the record straight and the links alive.</p>
+    </div>
+    <div class="cards">
+      <div class="card"><div class="ico blue">👤</div><h3>Verified identity</h3><p>A permanent academic ID that stays yours — printed in papers, pasted into CVs, resolvable forever.</p></div>
+      <div class="card"><div class="ico yellow">📚</div><h3>Publications &amp; works</h3><p>Import from ORCID or add manually. Every article, conference and chapter in one timeline.</p></div>
+      <div class="card"><div class="ico red">🎓</div><h3>Editorial board membership</h3><p>Apply, serve, and showcase your editorial-board appointments across STM journals.</p></div>
+      <div class="card"><div class="ico blue">🤝</div><h3>Network &amp; collaborate</h3><p>Follow peers, share updates, and discover reviewers in your field of expertise.</p></div>
+      <div class="card"><div class="ico yellow">📄</div><h3>Certificates &amp; letters</h3><p>Download empanelment letters and editorial certificates for your records, instantly.</p></div>
+      <div class="card"><div class="ico red">🔎</div><h3>Discoverable</h3><p>Your profile is indexed by search engines and linked from every paper that cites your APID.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="split">
+  <div class="wrap">
+    <div>
+      <h2>Elevate your research. Publish with confidence.</h2>
+      <p>APID is backed by Consortium e-Learning Network's editorial infrastructure — the same system that powers STM Journals, Journals Library and Manuscript Engine.</p>
+      <ul>
+        <li><svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L4.3 10.5a1 1 0 111.4-1.4L8.6 12 15.3 5.3a1 1 0 011.4 0z"/></svg>Fully indexed in Google Scholar &amp; search</li>
+        <li><svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L4.3 10.5a1 1 0 111.4-1.4L8.6 12 15.3 5.3a1 1 0 011.4 0z"/></svg>Permanent, forward-stable profile URLs</li>
+        <li><svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L4.3 10.5a1 1 0 111.4-1.4L8.6 12 15.3 5.3a1 1 0 011.4 0z"/></svg>ORCID synchronisation out of the box</li>
+        <li><svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20"><path d="M16.7 5.3a1 1 0 010 1.4l-7.4 7.4a1 1 0 01-1.4 0L4.3 10.5a1 1 0 111.4-1.4L8.6 12 15.3 5.3a1 1 0 011.4 0z"/></svg>Editorial-office integration with STM Journals</li>
+      </ul>
+    </div>
+    <div><img src="{% static 'apid/images/unsplash-1456513080510.jpg' %}" alt="Research"></div>
+  </div>
+</section>
+
+<section class="cta-block">
+  <h2>Ready to claim your academic identity?</h2>
+  <p>Join 13,400+ scholars with a permanent APID profile. Free to register, free to maintain.</p>
+  <a href="/registration/" class="btn btn-accent">Create your APID →</a>
+</section>
+{% endblock %}
