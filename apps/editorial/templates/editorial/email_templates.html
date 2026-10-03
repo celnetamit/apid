@@ -1,0 +1,47 @@
+{% extends "editorial/office_base.html" %}
+{% block office_title %}Email templates{% endblock %}
+{% block office_section %}email_templates{% endblock %}
+{% block office_navsub %}Outgoing mail{% endblock %}
+{% block office_style %}
+ .t-row { grid-template-columns:1fr 2fr 90px 110px; }
+ .t-cat { font-size:12px; color:var(--muted); margin-top:2px; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; }
+ .t-subj { font-size:13px; color:var(--muted); margin-top:2px;
+           display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
+{% endblock %}
+
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · <a href="{% url 'emails-log' %}">Email</a> · Templates</div>
+  <h1>Email templates <span class="pill info" style="vertical-align:middle;margin-left:8px">{{ templates|length }}</span></h1>
+  <p>Edit the subject and body for each category. Variables in <code>{curly}</code> braces are filled in at send time.</p>
+</header>
+
+<div class="panel office-list">
+  <div class="row head t-row">
+    <div>Category</div>
+    <div>Subject</div>
+    <div style="text-align:center">Status</div>
+    <div class="act">&nbsp;</div>
+  </div>
+  {% for t in templates %}
+    <div class="row t-row">
+      <div>
+        <div style="font-weight:600;color:var(--ink)">{{ t.name }}</div>
+        <div class="t-cat">{{ t.category }}</div>
+      </div>
+      <div>
+        <div style="color:var(--ink)">{{ t.subject }}</div>
+        <div class="t-subj">{{ t.body|slice:":120" }}</div>
+      </div>
+      <div style="text-align:center">
+        {% if t.enabled %}<span class="pill ok">On</span>{% else %}<span class="pill mut">Off</span>{% endif %}
+      </div>
+      <div class="act"><a href="{% url 'email-template-edit' t.pk %}">Edit →</a></div>
+    </div>
+  {% empty %}
+    <div class="row"><div style="grid-column:1/-1;color:var(--muted);padding:28px;text-align:center">
+      No templates yet. Open any template to seed the defaults.
+    </div></div>
+  {% endfor %}
+</div>
+{% endblock %}

@@ -1092,6 +1092,49 @@ def email_log_detail(request, pk: int):
 
 
 @office_only
+def email_templates_index(request):
+    """List all editable email templates by category."""
+    from apps.identity.models import EmailTemplate
+    from apps.identity import email_templates as _et
+    _et.ensure_seeded()
+    templates = EmailTemplate.objects.order_by("name")
+    return render(request, "editorial/email_templates.html", {
+        "templates": templates,
+    })
+
+
+@office_only
+def email_template_edit(request, pk: int):
+    """Edit the subject + body for one email category."""
+    from apps.identity.models import EmailTemplate
+    from apps.identity import email_templates as _et
+    tmpl = get_object_or_404(EmailTemplate, pk=pk)
+    if request.method == "POST":
+        action = (request.POST.get("action") or "").strip()
+        if action == "reset":
+            d = _et.default_for(tmpl.category)
+            tmpl.subject = d["subject"]
+            tmpl.body = d["body"]
+            tmpl.variables_help = d["variables_help"]
+            tmpl.enabled = True
+            tmpl.save()
+            messages.success(request, f"Reset {tmpl.name} to the shipping default.")
+            return redirect("email-template-edit", pk=pk)
+        tmpl.name = (request.POST.get("name") or tmpl.name).strip()[:120]
+        tmpl.subject = (request.POST.get("subject") or "").strip()[:500]
+        tmpl.body = request.POST.get("body") or ""
+        tmpl.enabled = "enabled" in request.POST
+        tmpl.save()
+        messages.success(request, f"Saved {tmpl.name}.")
+        return redirect("email-template-edit", pk=pk)
+    return render(request, "editorial/email_template_edit.html", {
+        "tmpl": tmpl,
+        "default_subject": _et.default_for(tmpl.category)["subject"],
+        "default_body": _et.default_for(tmpl.category)["body"],
+    })
+
+
+@office_only
 def editors_index(request):
     """Editorial-staff roster. Click a row to edit; one place for all their journals."""
     from django.db.models import Count

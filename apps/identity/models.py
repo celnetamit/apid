@@ -100,6 +100,48 @@ class MemberRole(models.Model):
         return f"{self.member.apid}: {self.get_role_display()}"
 
 
+class EmailTemplate(models.Model):
+    """Office-editable subject + body for every outgoing email category.
+
+    Store one row per `category` (slug). The system reads this row before
+    sending; if `enabled` is False the hard-coded default takes over. Bodies
+    are plain-text with Python `str.format` placeholders — `{name}`, `{email}`,
+    `{password}`, `{site}` — resolved at send time against the message context.
+
+    An office editor sees only the categories we created up front; adding a
+    new category requires a code change (because the sender has to know when
+    to pick it).
+    """
+
+    category = models.CharField(max_length=60, unique=True, db_index=True,
+                                help_text="Slug: login_credentials, welcome, …")
+    name = models.CharField(max_length=120,
+                            help_text="What the office sees in the editor.")
+    subject = models.CharField(max_length=500)
+    body = models.TextField()
+    enabled = models.BooleanField(default=True)
+    variables_help = models.TextField(blank=True,
+        help_text="Short note on which {placeholders} the sender provides.")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.category})"
+
+    def render(self, context: dict) -> tuple[str, str]:
+        """Format the subject + body with `context`. Missing keys render as blank."""
+        class _SafeDict(dict):
+            def __missing__(self, key):
+                return ""
+        safe = _SafeDict(context)
+        try:
+            return self.subject.format_map(safe), self.body.format_map(safe)
+        except (ValueError, IndexError):
+            return self.subject, self.body
+
+
 class EmailLog(models.Model):
     """An outgoing email, logged for office audit. Captures recipient, sender,
     subject and body for every message the system sent — SES-backed or outbox

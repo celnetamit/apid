@@ -38,36 +38,9 @@ def _generate_password(length: int = 14) -> str:
     return "".join(secrets.choice(_ALPHABET) for _ in range(length))
 
 
-LOGIN_SUBJECT = "Your APID commissioning editor login"
-
-LOGIN_BODY = """\
-Hello {name},
-
-An APID (Academic Publishing and Information Database) account has been
-set up for you as a Commissioning Editor at Consortium e-Learning Network
-Pvt Ltd. You can sign in to review and decide applications on the
-journals you commission.
-
-  Sign in:    {site}/accounts/login/
-  Email:      {email}
-  Password:   {password}
-
-For your security, please change your password immediately after signing
-in for the first time:
-
-  {site}/accounts/password_reset/
-
-Once signed in, open "My Profile" to update your name, phone, title and
-other personal details — the record may still hold details from an
-earlier user of this mailbox.
-
-If you were not expecting this message, please ignore it; the account
-remains locked unless you log in.
-
-Regards,
-The APID Office
-Consortium e-Learning Network Pvt Ltd
-"""
+#: Legacy constants — kept for reference. The live copy comes from
+#: `EmailTemplate(category="login_credentials")`; see `email_templates.py`
+#: for the shipping default.
 
 
 def _next_apid() -> str:
@@ -142,11 +115,13 @@ class Command(BaseCommand):
                 member.save()
                 updated += 1
 
-            body = LOGIN_BODY.format(name=staff.name, email=email,
-                                     password=password,
-                                     site=site.rstrip("/"))
+            from apps.identity import email_templates as _et
+            subject, body = _et.render("login_credentials", {
+                "name": staff.name, "email": email,
+                "password": password, "site": site.rstrip("/"),
+            })
             message = EmailMessage(
-                subject=LOGIN_SUBJECT, body=body, to=[email],
+                subject=subject, body=body, to=[email],
                 from_email=settings.DEFAULT_FROM_EMAIL,
             )
             try:

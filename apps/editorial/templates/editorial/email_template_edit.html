@@ -1,0 +1,82 @@
+{% extends "editorial/office_base.html" %}
+{% block office_title %}{{ tmpl.name }}{% endblock %}
+{% block office_section %}email_templates{% endblock %}
+{% block office_navsub %}Outgoing mail{% endblock %}
+{% block office_style %}
+ .form .pb { padding:20px 24px; }
+ .form label { display:block; font-weight:600; font-size:13px; color:var(--ink); margin:14px 0 4px; }
+ .form input[type=text], .form textarea
+   { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:6px;
+     font-size:14px; background:#fff; font-family:inherit; }
+ .form textarea { min-height:260px; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+                  font-size:13px; line-height:1.55; resize:vertical; }
+ .form .check { display:flex; align-items:center; gap:8px; margin-top:14px; font-size:14px; }
+ .form .actions { margin-top:22px; padding-top:16px; border-top:1px solid var(--line);
+                  display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+ .form .actions button { padding:10px 20px; background:var(--primary); color:#fff;
+                         border:0; border-radius:6px; font-weight:600; cursor:pointer; }
+ .form .actions .danger { background:#fff; color:var(--danger); border:1px solid #fecaca; }
+ .form .actions .danger:hover { background:#fee2e2; }
+ .hint { background:#f4f8fd; border:1px solid #d6e4f5; border-radius:8px;
+         padding:10px 14px; font-size:13px; color:var(--ink); margin-top:6px; }
+ .hint code { background:#fff; border:1px solid var(--line); border-radius:4px;
+              padding:1px 6px; font-size:12px; }
+ .preview-box { background:#f9fafc; border:1px solid var(--line); border-radius:8px;
+                padding:14px 18px; margin-top:14px; font-family:ui-monospace,monospace;
+                font-size:12px; color:var(--muted); white-space:pre-wrap; max-height:280px;
+                overflow:auto; }
+ .preview-box strong { color:var(--ink); font-family:inherit; }
+{% endblock %}
+
+{% block office_main %}
+<header class="office-head">
+  <div class="crumb"><a href="/office/">Office</a> · <a href="{% url 'email-templates' %}">Email templates</a> · {{ tmpl.name }}</div>
+  <h1>{{ tmpl.name }}</h1>
+  <p>Category <code>{{ tmpl.category }}</code> · Last saved {{ tmpl.updated_at|date:"d M Y H:i" }}</p>
+</header>
+
+<form method="post" class="panel form">
+  <div class="pb">
+    {% csrf_token %}
+
+    <label for="id_name">Internal name (shown in the editor)</label>
+    <input type="text" id="id_name" name="name" value="{{ tmpl.name }}">
+
+    <label for="id_subject">Subject</label>
+    <input type="text" id="id_subject" name="subject" value="{{ tmpl.subject }}">
+
+    <label for="id_body">Body</label>
+    <textarea id="id_body" name="body">{{ tmpl.body }}</textarea>
+    {% if tmpl.variables_help %}
+      <div class="hint">
+        Available variables for this category:
+        {% for v in tmpl.variables_help.split %}<code>{{ v }}</code> {% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="check">
+      <input type="checkbox" id="id_enabled" name="enabled" {% if tmpl.enabled %}checked{% endif %}>
+      <label for="id_enabled" style="margin:0">Use this template for outgoing mail (otherwise the shipping default is used)</label>
+    </div>
+
+    <div class="actions">
+      <button type="submit">Save</button>
+      <a href="{% url 'email-templates' %}" style="color:var(--muted)">Cancel</a>
+      <span style="flex:1"></span>
+      <button type="submit" name="action" value="reset" class="danger"
+              onclick="return confirm('Reset this template to the shipping default? Your edits will be lost.')">
+        Reset to default
+      </button>
+    </div>
+  </div>
+</form>
+
+<div class="panel" style="margin-top:20px">
+  <div class="ph"><h2>Shipping default (reference)</h2></div>
+  <div class="pb">
+    <div class="preview-box"><strong>Subject:</strong> {{ default_subject }}
+
+{{ default_body }}</div>
+  </div>
+</div>
+{% endblock %}
