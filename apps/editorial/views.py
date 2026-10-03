@@ -802,16 +802,29 @@ def dashboard(request):
         "recent": recent,
     })
 
-@office_only
+@queue_or_manager
 def journal_manage(request, pk: int):
-    # wisp 2026-10-02: journal CE management
-    """Office page to assign / remove Commissioning Editor for a journal."""
+    """Journal profile for internal team — office or the journal's own managers.
+
+    Office may reassign the commissioning editor and append/remove Appointments.
+    A journal's own CE / EIC sees the same page in read-mostly mode: they can
+    see team, pending applications and recent decisions on their own journal
+    but can't reassign the commissioning editor.
+    """
     from django.utils import timezone
-    from apps.editorial.models import Appointment, Journal
+    from django.db.models import Count, Q
+    from apps.editorial.models import Appointment, Application, Decision, Journal
     from apps.identity.models import Member
-    journal = get_object_or_404(Journal, pk=pk)
+    journal = get_object_or_404(Journal.objects.select_related("commissioning_editor"), pk=pk)
+
+    user_is_office = is_office(request.user)
+    if not user_is_office:
+        if not manager_journals(request.user).filter(pk=pk).exists():
+            raise PermissionDenied("This journal is not one you manage.")
 
     if request.method == "POST":
+        if not user_is_office:
+            raise PermissionDenied("Only the editorial office can edit the commissioning editor here.")
         action = (request.POST.get("action") or "").strip()
         if action == "assign":
             email = (request.POST.get("email") or "").strip()
@@ -855,21 +868,57 @@ def journal_manage(request, pk: int):
         role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
         ended_on__isnull=True)
         .select_related("member", "member__profile"))
+    board = (Appointment.objects.filter(journal=journal, ended_on__isnull=True)
+             .exclude(role__in=["Commissioning Editor", "Editor-in-Chief",
+                                "Associate Editor-in-chief", "Associate Editor-in-Chief"])
+             .select_related("member", "member__profile")
+             .order_by("role", "member__full_name")[:60])
+
+    # Application counts for this journal.
+    app_counts = Application.objects.filter(
+        journals__journal=journal
+    ).aggregate(
+        pending=Count("pk", filter=Q(decision=Decision.PENDING), distinct=True),
+        accepted=Count("pk", filter=Q(decision=Decision.ACCEPTED), distinct=True),
+        declined=Count("pk", filter=Q(decision=Decision.DECLINED), distinct=True),
+    )
+
+    # Last 10 decided for this journal.
+    recent = (Application.objects
+              .filter(journals__journal=journal)
+              .exclude(decision__in=["", Decision.PENDING])
+              .select_related("member")
+              .order_by("-decided_at")
+              .distinct()[:10])
 
     return render(request, "editorial/journal_manage.html", {
         "journal": journal,
         "commissioning_editors": ces,
         "managers": managers,
+        "board": board,
+        "board_count": board.count() if hasattr(board, "count") else len(board),
+        "app_counts": app_counts,
+        "recent": recent,
+        "user_is_office": user_is_office,
     })
 
 
-@office_only
+@queue_or_manager
 def journals_index(request):
-    """Journals list with commissioning-editor filter, bulk-assign, EIC count."""
+    """Journals list.
+
+    Office sees every journal with filter + bulk-assign. A commissioning editor
+    (non-office) sees only the journals they commission — the admin tooling
+    (bulk assign, editor filter, needs_ce) is hidden from them.
+    """
     from django.db.models import Count, Q
     from apps.editorial.models import EditorialStaff, Journal
 
+    user_is_office = is_office(request.user)
+
     if request.method == "POST" and request.POST.get("action") == "assign_editor":
+        if not user_is_office:
+            raise PermissionDenied("Only the editorial office can reassign commissioning editors.")
         ids = [int(x) for x in request.POST.getlist("journal_ids") if x.isdigit()]
         editor_id = request.POST.get("editor_id") or ""
         editor = None
@@ -896,6 +945,11 @@ def journals_index(request):
             filter=Q(appointments__role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
                      appointments__ended_on__isnull=True)),
     )
+    if not user_is_office:
+        managed_ids = list(manager_journals(request.user).values_list("id", flat=True)) or [-1]
+        journals = journals.filter(pk__in=managed_ids)
+        needs_ce = False
+        editor_filter = ""
     if q:
         journals = journals.filter(title__icontains=q)
     if needs_ce:
@@ -905,13 +959,14 @@ def journals_index(request):
     elif editor_filter.isdigit():
         journals = journals.filter(commissioning_editor_id=int(editor_filter))
     journals = journals.order_by("commissioning_editor__name", "title")
-    editors = EditorialStaff.objects.filter(active=True).order_by("name")
+    editors = EditorialStaff.objects.filter(active=True).order_by("name") if user_is_office else EditorialStaff.objects.none()
     return render(request, "editorial/journals_index.html", {
         "journals": journals,
         "q": q,
         "needs_ce": needs_ce,
         "editor_filter": editor_filter,
         "editors": editors,
+        "user_is_office": user_is_office,
         "total": journals.count(),
         "without_ce": journals.filter(commissioning_editor__isnull=True).count(),
     })

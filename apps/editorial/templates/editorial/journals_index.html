@@ -21,44 +21,50 @@
 {% block office_main %}
 <header class="office-head">
   <div class="crumb"><a href="/office/">Office</a> · Journals</div>
-  <h1>Journals &amp; Commissioning Editors</h1>
-  <p><strong>{{ total }}</strong> journals · <strong>{{ without_ce }}</strong> without a commissioning editor · <a href="{% url 'editors-index' %}">Manage editors →</a></p>
+  <h1>{% if user_is_office %}Journals &amp; Commissioning Editors{% else %}Your journals{% endif %}</h1>
+  <p>
+    <strong>{{ total }}</strong> journal{{ total|pluralize }}{% if user_is_office %} · <strong>{{ without_ce }}</strong> without a commissioning editor · <a href="{% url 'editors-index' %}">Manage editors →</a>{% endif %}
+  </p>
 </header>
 
 <form method="get" class="office-toolbar">
   <input type="search" name="q" placeholder="Search journals by title…" value="{{ q }}">
-  <select name="editor" onchange="this.form.submit()">
-    <option value="">All commissioning editors</option>
-    <option value="none" {% if editor_filter == "none" %}selected{% endif %}>— no editor assigned —</option>
-    {% for e in editors %}
-      <option value="{{ e.pk }}" {% if editor_filter == e.pk|stringformat:'s' %}selected{% endif %}>{{ e.name }} ({{ e.email }})</option>
-    {% endfor %}
-  </select>
-  <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)">
-    <input type="checkbox" name="needs_ce" value="1" {% if needs_ce %}checked{% endif %} onchange="this.form.submit()"> Only without CE
-  </label>
-  <button type="submit" class="btn-outline">Apply</button>
+  {% if user_is_office %}
+    <select name="editor" onchange="this.form.submit()">
+      <option value="">All commissioning editors</option>
+      <option value="none" {% if editor_filter == "none" %}selected{% endif %}>— no editor assigned —</option>
+      {% for e in editors %}
+        <option value="{{ e.pk }}" {% if editor_filter == e.pk|stringformat:'s' %}selected{% endif %}>{{ e.name }} ({{ e.email }})</option>
+      {% endfor %}
+    </select>
+    <label style="display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)">
+      <input type="checkbox" name="needs_ce" value="1" {% if needs_ce %}checked{% endif %} onchange="this.form.submit()"> Only without CE
+    </label>
+  {% endif %}
+  <button type="submit" class="btn-outline">Search</button>
 </form>
 
 <form method="post" id="bulkform">
   {% csrf_token %}
   <input type="hidden" name="action" value="assign_editor">
-  <div class="bulk">
-    <strong>Bulk assign:</strong>
-    <span id="bulk-count">0 selected</span>
-    <select name="editor_id" required>
-      <option value="">— pick commissioning editor —</option>
-      <option value="__clear__">— clear editor —</option>
-      {% for e in editors %}
-        <option value="{{ e.pk }}">{{ e.name }} ({{ e.email }})</option>
-      {% endfor %}
-    </select>
-    <button type="submit">Apply to selected</button>
-  </div>
+  {% if user_is_office %}
+    <div class="bulk">
+      <strong>Bulk assign:</strong>
+      <span id="bulk-count">0 selected</span>
+      <select name="editor_id" required>
+        <option value="">— pick commissioning editor —</option>
+        <option value="__clear__">— clear editor —</option>
+        {% for e in editors %}
+          <option value="{{ e.pk }}">{{ e.name }} ({{ e.email }})</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Apply to selected</button>
+    </div>
+  {% endif %}
 
   <div class="panel office-list">
     <div class="row head j-row">
-      <div><input type="checkbox" id="bulk-all"></div>
+      {% if user_is_office %}<div><input type="checkbox" id="bulk-all"></div>{% else %}<div></div>{% endif %}
       <div>Journal</div>
       <div>Commissioning editor</div>
       <div style="text-align:center">EICs</div>
@@ -66,7 +72,9 @@
     </div>
     {% for j in journals %}
       <div class="row j-row">
-        <div><input type="checkbox" name="journal_ids" value="{{ j.pk }}" class="bulk-pick"></div>
+        {% if user_is_office %}
+          <div><input type="checkbox" name="journal_ids" value="{{ j.pk }}" class="bulk-pick"></div>
+        {% else %}<div></div>{% endif %}
         <div>
           <div class="j-title">{{ j.title }}</div>
           {% if j.abbreviation %}<div class="j-sub">{{ j.abbreviation }}{% if j.subject %} · {{ j.subject }}{% endif %}</div>{% endif %}
@@ -78,12 +86,13 @@
           {% else %}— none —{% endif %}
         </div>
         <div class="count">{{ j.mgr_count }}</div>
-        <div class="act"><a href="{% url 'journal-manage' j.pk %}">Manage →</a></div>
+        <div class="act"><a href="{% url 'journal-manage' j.pk %}">Open →</a></div>
       </div>
     {% endfor %}
   </div>
 </form>
 
+{% if user_is_office %}
 <script>
 (function () {
   var all = document.getElementById("bulk-all");
@@ -102,4 +111,5 @@
   recount();
 })();
 </script>
+{% endif %}
 {% endblock %}
