@@ -162,12 +162,18 @@ def home(request):
 
 
 def directory(request):
-    """Search the registry: by name, affiliation, expertise or ORCID."""
+    """Search the registry: APID, name, email, affiliation, expertise or ORCID."""
     query = (request.GET.get("q") or "").strip()
     results = Profile.objects.none()
     if query:
+        # APID is minted as the WordPress user id (digits), so a plain number
+        # should land on a single member rather than fuzzy-matching 13,500 ORCIDs
+        # that happen to contain those digits. iexact on apid, icontains on the
+        # text fields.
         results = (Profile.objects.select_related("member")
-                   .filter(Q(member__full_name__icontains=query)
+                   .filter(Q(member__apid__iexact=query)
+                           | Q(member__full_name__icontains=query)
+                           | Q(member__email__icontains=query)
                            | Q(affiliation__icontains=query)
                            | Q(expertise__icontains=query)
                            | Q(areas_of_interest__icontains=query)
