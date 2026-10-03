@@ -103,6 +103,13 @@ class Command(BaseCommand):
                 # file. Counted, never invented.
                 counts["gone: no local file and no cloud record"] += 1
                 continue
+            if not name.group(1):
+                # WP Stateless left the record half-written: a bucket but no object
+                # key. Fetching `.../<bucket>/` returns the bucket's XML listing,
+                # which `urlopen` writes out as a 258-KB "image" — a bug a casual
+                # eye misses because the file is there. Counted, never invented.
+                counts["gone: cloud record has no object name"] += 1
+                continue
             wanted.append((post_id, path,
                            f"https://storage.googleapis.com/{bucket.group(1)}/"
                            f"{name.group(1)}"))
