@@ -26,9 +26,15 @@ from functools import wraps
 
 from django.core.exceptions import PermissionDenied
 
-#: Counted on the live capability rows: administrator 6, tech support 7, commissioning
-#: editor 24.
-OFFICE_ROLES = {"administrator", "tech_support", "commissioning_editor"}
+#: Counted on the live capability rows: administrator 6, tech support 7.
+#:
+#: wisp 2026-10-03: "commissioning_editor" was in this set because the legacy WP role
+#: implied "office tier". With the new EditorialStaff model that scopes a commissioning
+#: editor to specific journals via Journal.commissioning_editor, giving the role
+#: office-wide access would show every editor every subject's applications — which
+#: defeats the point. They now reach the queue as journal managers for their mapped
+#: journals (see `manager_journals`).
+OFFICE_ROLES = {"administrator", "tech_support"}
 
 #: Appointment roles that give someone journal-level application management access.
 #: Counted in live data: Editor-in-Chief 344, Associate Editor-in-chief 382, etc.
@@ -53,16 +59,29 @@ def is_office(user) -> bool:
 
 
 def manager_journals(user):
-    """Queryset of Journal objects this user actively manages (EIC or equivalent).
-    Returns an empty queryset for anyone not authenticated or not a manager."""
+    """Queryset of Journal objects this user actively manages.
+
+    Two sources, union:
+      * active Appointment in a MANAGER_ROLES role (EIC, Associate EIC, journal_manager).
+      * Journal.commissioning_editor pointing at an active EditorialStaff whose email
+        matches the user's email — the signatory-side link is now the access link too.
+    """
     from apps.editorial.models import Journal
     if not getattr(user, "is_authenticated", False):
         return Journal.objects.none()
-    return Journal.objects.filter(
+    from django.db.models import Q
+    email = (getattr(user, "email", "") or "").lower()
+    predicate = Q(
         appointments__member=user,
         appointments__role__in=MANAGER_ROLES,
         appointments__ended_on__isnull=True,
-    ).distinct()
+    )
+    if email:
+        predicate |= Q(
+            commissioning_editor__email__iexact=email,
+            commissioning_editor__active=True,
+        )
+    return Journal.objects.filter(predicate).distinct()
 
 
 def is_journal_manager(user) -> bool:

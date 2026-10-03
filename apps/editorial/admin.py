@@ -1,15 +1,28 @@
 from django.contrib import admin
 
 from apps.editorial.models import (Application, ApplicationJournal, Appointment,
-                                   Journal)
+                                   EditorialStaff, Journal)
+
+
+@admin.register(EditorialStaff)
+class EditorialStaffAdmin(admin.ModelAdmin):
+    list_display = ("name", "email", "designation", "active", "journal_count")
+    list_filter = ("active", "designation")
+    search_fields = ("name", "email", "phone")
+    readonly_fields = ("created_at", "updated_at")
+
+    def journal_count(self, obj):
+        return obj.journals.count()
+    journal_count.short_description = "Journals"
 
 
 @admin.register(Journal)
 class JournalAdmin(admin.ModelAdmin):
-    list_display = ("title", "abbreviation", "subject", "status")
-    list_filter = ("status", "publisher")
+    list_display = ("title", "abbreviation", "subject", "commissioning_editor", "status")
+    list_filter = ("status", "publisher", "commissioning_editor")
     search_fields = ("title", "abbreviation", "subject")
     readonly_fields = ("wp_entry_id",)
+    autocomplete_fields = ["commissioning_editor"]
 
 
 class ApplicationJournalInline(admin.TabularInline):

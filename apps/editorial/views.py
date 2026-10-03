@@ -54,21 +54,30 @@ STATUS_LABELS = {
 
 @queue_or_manager
 def queue(request):
-    """The legacy queue, now read from mng.
+    """Local-DB application queue.
 
-    Decisions are made in manuscript-ngine — this page is a viewer. Every row
-    links to the mng decide screen; the queue itself is a signed API call.
+    Office sees every application; a journal manager (EIC/Associate EIC, or the
+    commissioning editor set on the journal via EditorialStaff) sees only
+    applications naming at least one of their journals.
     """
     from apps.editorial.mng_client import queue as mng_queue, queue_summary
     state = request.GET.get("state", "new")
     query = (request.GET.get("q") or "").strip()
 
+    user_is_office = is_office(request.user)
+    journal_ids = None
+    if not user_is_office:
+        journal_ids = list(manager_journals(request.user).values_list("id", flat=True))
+        if not journal_ids:
+            journal_ids = [-1]  # match nothing
+
     try:
-        counts = queue_summary()
+        counts = queue_summary(journal_ids=journal_ids)
         page_data = mng_queue(
             status=state if state and state != "all" else None,
             q=query or None,
             page=1, page_size=100,
+            journal_ids=journal_ids,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
@@ -240,6 +249,13 @@ def application(request, pk):
     # wisp 2026-10-02 pm: which choices this user can decide on.
     user_is_office = is_office(request.user)
     managed_ids = set(manager_journals(request.user).values_list("id", flat=True))
+    # wisp 2026-10-03: non-office users may only view the page when at least one
+    # choice is on a journal they manage. Otherwise the detail page would leak
+    # application contents (identity, CV link, affiliations) across journals.
+    if not user_is_office:
+        choice_journal_ids = {c.get("journal_id") for c in choices if c.get("journal_id")}
+        if not (choice_journal_ids & managed_ids):
+            raise PermissionDenied("This application is not for one of your journals.")
     for c in choices:
         label, tone = STATUS_LABELS.get(c["status"], (c["status_display"], "muted"))
         c["state_label"], c["state_tone"] = label, tone
@@ -445,14 +461,21 @@ def _qr_data_url(payload: str) -> str:
 def _journal_signatory_native(journal):
     """Pick a signatory for a journal's letter/certificate from the local DB.
 
-    Priority: Commissioning Editor → Chief Editor → Editor-in-Chief → Managing Editor.
+    Priority: journal.commissioning_editor (EditorialStaff, our internal office)
+    → Chief Editor → Editor-in-Chief → Managing Editor (Appointment-based board roles).
     If nothing matches, the templates fall back to "Editorial Office".
     """
     if not journal:
         return {}
+    ce = getattr(journal, "commissioning_editor", None)
+    if ce and ce.active:
+        return {
+            "signatory_name": ce.name,
+            "signatory_title": ce.designation or "Commissioning Editor",
+            "imprint_name": "Consortium e-Learning Network Pvt Ltd",
+        }
     from apps.editorial.models import Appointment
-    priority = ["Commissioning Editor", "Chief Editor",
-                "Editor-in-Chief", "Managing Editor"]
+    priority = ["Chief Editor", "Editor-in-Chief", "Managing Editor"]
     appts = {a.role: a for a in
              Appointment.objects.filter(journal=journal, ended_on__isnull=True,
                                         role__in=priority)
@@ -717,15 +740,20 @@ def dashboard(request):
     if not (office or managed.exists()):
         raise PermissionDenied
 
-    # Local pending (from imported data, usually 0 now that mng is live)
+    managed_ids = (None if office
+                   else list(managed.values_list("id", flat=True)) or [-1])
+
+    # Local applications — all for office, scoped to managed journals otherwise.
     local_apps = Application.objects.all()
+    if managed_ids is not None:
+        local_apps = local_apps.filter(journals__journal_id__in=managed_ids).distinct()
     local_pending = local_apps.filter(decision="").count()
     local_decided = local_apps.exclude(decision="").count()
 
     # Live counts from mng
     try:
         from apps.editorial.mng_client import queue_summary
-        mng_counts = queue_summary() or {}
+        mng_counts = queue_summary(journal_ids=managed_ids) or {}
     except Exception:
         mng_counts = {}
     mng_pending = mng_counts.get("new", 0) + mng_counts.get("under_review", 0)
@@ -835,30 +863,129 @@ def journal_manage(request, pk: int):
 
 @office_only
 def journals_index(request):
-    # wisp 2026-10-02: journal CE management
-    """Office page listing all journals with their CE count — gateway to manage pages."""
+    """Journals list with commissioning-editor filter, bulk-assign, EIC count."""
     from django.db.models import Count, Q
-    from apps.editorial.models import Journal
+    from apps.editorial.models import EditorialStaff, Journal
+
+    if request.method == "POST" and request.POST.get("action") == "assign_editor":
+        ids = [int(x) for x in request.POST.getlist("journal_ids") if x.isdigit()]
+        editor_id = request.POST.get("editor_id") or ""
+        editor = None
+        if editor_id == "__clear__":
+            editor = None
+        elif editor_id.isdigit():
+            editor = EditorialStaff.objects.filter(pk=int(editor_id)).first()
+            if not editor:
+                messages.error(request, "That editor no longer exists.")
+                return redirect("journals-index")
+        else:
+            messages.error(request, "Pick an editor (or Clear).")
+            return redirect("journals-index")
+        n = Journal.objects.filter(pk__in=ids).update(commissioning_editor=editor)
+        label = editor.name if editor else "— cleared —"
+        messages.success(request, f"Set commissioning editor on {n} journal(s): {label}")
+        return redirect("journals-index")
+
     q = (request.GET.get("q") or "").strip()
     needs_ce = request.GET.get("needs_ce") == "1"
-    journals = Journal.objects.annotate(
-        ce_count=Count("appointments",
-            filter=Q(appointments__role="Commissioning Editor",
-                     appointments__ended_on__isnull=True)),
+    editor_filter = request.GET.get("editor") or ""
+    journals = Journal.objects.select_related("commissioning_editor").annotate(
         mgr_count=Count("appointments",
-            filter=Q(appointments__role__in=["Editor-in-Chief","Associate Editor-in-chief","Associate Editor-in-Chief"],
+            filter=Q(appointments__role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
                      appointments__ended_on__isnull=True)),
     )
     if q:
         journals = journals.filter(title__icontains=q)
     if needs_ce:
-        journals = journals.filter(ce_count=0)
-    journals = journals.order_by("ce_count", "title")
+        journals = journals.filter(commissioning_editor__isnull=True)
+    if editor_filter == "none":
+        journals = journals.filter(commissioning_editor__isnull=True)
+    elif editor_filter.isdigit():
+        journals = journals.filter(commissioning_editor_id=int(editor_filter))
+    journals = journals.order_by("commissioning_editor__name", "title")
+    editors = EditorialStaff.objects.filter(active=True).order_by("name")
     return render(request, "editorial/journals_index.html", {
         "journals": journals,
         "q": q,
         "needs_ce": needs_ce,
+        "editor_filter": editor_filter,
+        "editors": editors,
         "total": journals.count(),
-        "without_ce": sum(1 for j in journals if j.ce_count == 0),
+        "without_ce": journals.filter(commissioning_editor__isnull=True).count(),
     })
+
+
+@office_only
+def editors_index(request):
+    """Editorial-staff roster. Click a row to edit; one place for all their journals."""
+    from django.db.models import Count
+    from apps.editorial.models import EditorialStaff
+    q = (request.GET.get("q") or "").strip()
+    editors = EditorialStaff.objects.annotate(journal_count=Count("journals"))
+    if q:
+        editors = editors.filter(Q(name__icontains=q) | Q(email__icontains=q))
+    editors = editors.order_by("-active", "-journal_count", "name")
+    return render(request, "editorial/editors_index.html", {
+        "editors": editors,
+        "q": q,
+        "total": editors.count(),
+    })
+
+
+@office_only
+def editor_edit(request, pk: int = None):
+    """Create or edit one editorial-staff member. Changes apply to all their journals."""
+    from apps.editorial.models import EditorialStaff
+    editor = None
+    if pk:
+        editor = get_object_or_404(EditorialStaff, pk=pk)
+
+    if request.method == "POST":
+        name = (request.POST.get("name") or "").strip()
+        email = (request.POST.get("email") or "").strip().lower()
+        if not name or not email:
+            messages.error(request, "Name and email are required.")
+            return redirect(request.path)
+        clash = EditorialStaff.objects.filter(email=email)
+        if editor:
+            clash = clash.exclude(pk=editor.pk)
+        if clash.exists():
+            messages.error(request, f"Another editor already has email {email}.")
+            return redirect(request.path)
+        fields = {
+            "name": name,
+            "email": email,
+            "phone": (request.POST.get("phone") or "").strip(),
+            "designation": (request.POST.get("designation")
+                            or "Commissioning Editor").strip(),
+            "notes": (request.POST.get("notes") or "").strip(),
+            "active": "active" in request.POST,
+        }
+        if editor:
+            for k, v in fields.items():
+                setattr(editor, k, v)
+            editor.save()
+            messages.success(request, f"Updated {editor.name}.")
+        else:
+            editor = EditorialStaff.objects.create(**fields)
+            messages.success(request, f"Created {editor.name}.")
+        return redirect("editor-edit", pk=editor.pk)
+
+    journals = editor.journals.order_by("title") if editor else []
+    return render(request, "editorial/editor_edit.html", {
+        "editor": editor,
+        "journals": journals,
+    })
+
+
+@office_only
+def editor_delete(request, pk: int):
+    """Deactivate an editor (soft-delete). Keeps history, hides from pickers."""
+    from apps.editorial.models import EditorialStaff
+    editor = get_object_or_404(EditorialStaff, pk=pk)
+    if request.method == "POST":
+        editor.active = False
+        editor.save(update_fields=["active"])
+        messages.success(request, f"Deactivated {editor.name}.")
+    return redirect("editors-index")
 

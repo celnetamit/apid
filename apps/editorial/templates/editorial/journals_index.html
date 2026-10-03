@@ -9,19 +9,24 @@
  .page-head .n { color:#F5A623; font-weight:700; }
  .filters { background:#fff; border:1px solid var(--line); border-radius:10px; padding:14px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
  .filters input[type=search] { flex:1; min-width:200px; }
+ .filters select { padding:6px 10px; border:1px solid var(--line); border-radius:6px; font-size:13px; }
  .filters .toggle { display:inline-flex; align-items:center; gap:6px; font-size:14px; color:var(--muted); }
+ .bulk { background:#fff8e6; border:1px solid #f5deab; border-radius:10px; padding:12px 16px;
+         display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+ .bulk strong { color:#8c5a09; }
+ .bulk select { padding:6px 10px; border:1px solid #e3c98a; border-radius:6px; font-size:13px; min-width:220px; }
  .j-table { background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; }
- .j-row { display:grid; grid-template-columns:1fr 100px 100px 110px; gap:16px; padding:14px 20px; border-top:1px solid var(--line); align-items:center; }
+ .j-row { display:grid; grid-template-columns:28px 1fr 1fr 90px 110px; gap:16px; padding:14px 20px; border-top:1px solid var(--line); align-items:center; }
  .j-row:first-child { border-top:0; }
  .j-row.head { background:var(--soft); font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; padding:12px 20px; }
  .j-title { color:var(--ink); font-weight:600; font-size:14px; }
  .j-sub { color:var(--muted); font-size:12px; margin-top:2px; }
- .count { font-weight:700; font-variant-numeric:tabular-nums; }
- .count.zero { color:var(--danger); }
- .count.ok { color:#065f46; }
+ .ce-cell { font-size:13px; }
+ .ce-cell.none { color:var(--danger); font-style:italic; }
+ .count { font-weight:700; font-variant-numeric:tabular-nums; text-align:center; }
  .j-row .act { text-align:right; }
  .j-row .act a { font-size:13px; color:var(--primary); font-weight:500; }
- @media (max-width:720px) { .j-row { grid-template-columns:1fr auto; } .j-row .count, .j-row .j-sub { display:none; } }
+ @media (max-width:720px) { .j-row { grid-template-columns:28px 1fr auto; } .j-row .count, .j-row .j-sub, .j-row .ce-cell { display:none; } }
 {% endblock %}
 
 {% block content %}
@@ -29,7 +34,7 @@
   <div class="wrap">
     <div class="crumb"><a href="/office/">Office</a> · Journals</div>
     <h1>Journals &amp; Commissioning Editors</h1>
-    <p><span class="n">{{ total }}</span> journals · <span class="n">{{ without_ce }}</span> without a commissioning editor</p>
+    <p><span class="n">{{ total }}</span> journals · <span class="n">{{ without_ce }}</span> without a commissioning editor · <a href="{% url 'editors-index' %}" style="color:#dbeafe;text-decoration:underline">Manage editors →</a></p>
   </div>
 </div>
 <div class="wrap">
@@ -38,29 +43,81 @@
 
 <form method="get" class="filters">
   <input type="search" name="q" placeholder="Search journals by title…" value="{{ q }}">
+  <select name="editor" onchange="this.form.submit()">
+    <option value="">All commissioning editors</option>
+    <option value="none" {% if editor_filter == "none" %}selected{% endif %}>— no editor assigned —</option>
+    {% for e in editors %}
+      <option value="{{ e.pk }}" {% if editor_filter == e.pk|stringformat:'s' %}selected{% endif %}>{{ e.name }} ({{ e.email }})</option>
+    {% endfor %}
+  </select>
   <label class="toggle"><input type="checkbox" name="needs_ce" value="1" {% if needs_ce %}checked{% endif %} onchange="this.form.submit()"> Only without CE</label>
-  <button type="submit">Search</button>
+  <button type="submit">Apply</button>
 </form>
 
-<div class="j-table">
-  <div class="j-row head">
-    <div>Journal</div>
-    <div style="text-align:center">CEs</div>
-    <div style="text-align:center">Managers</div>
-    <div class="act">&nbsp;</div>
+<form method="post" id="bulkform">
+  {% csrf_token %}
+  <input type="hidden" name="action" value="assign_editor">
+  <div class="bulk">
+    <strong>Bulk assign:</strong>
+    <span id="bulk-count">0 selected</span>
+    <select name="editor_id" required>
+      <option value="">— pick commissioning editor —</option>
+      <option value="__clear__">— clear editor —</option>
+      {% for e in editors %}
+        <option value="{{ e.pk }}">{{ e.name }} ({{ e.email }})</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Apply to selected</button>
   </div>
-  {% for j in journals %}
-    <div class="j-row">
-      <div>
-        <div class="j-title">{{ j.title }}</div>
-        {% if j.subject %}<div class="j-sub">{{ j.subject }}</div>{% endif %}
-      </div>
-      <div style="text-align:center" class="count {% if j.ce_count == 0 %}zero{% else %}ok{% endif %}">{{ j.ce_count }}</div>
-      <div style="text-align:center" class="count">{{ j.mgr_count }}</div>
-      <div class="act"><a href="{% url 'journal-manage' j.pk %}">Manage →</a></div>
+
+  <div class="j-table">
+    <div class="j-row head">
+      <div><input type="checkbox" id="bulk-all"></div>
+      <div>Journal</div>
+      <div>Commissioning editor</div>
+      <div style="text-align:center">EICs</div>
+      <div class="act">&nbsp;</div>
     </div>
-  {% endfor %}
-</div>
+    {% for j in journals %}
+      <div class="j-row">
+        <div><input type="checkbox" name="journal_ids" value="{{ j.pk }}" class="bulk-pick"></div>
+        <div>
+          <div class="j-title">{{ j.title }}</div>
+          {% if j.abbreviation %}<div class="j-sub">{{ j.abbreviation }}{% if j.subject %} · {{ j.subject }}{% endif %}</div>{% endif %}
+        </div>
+        <div class="ce-cell {% if not j.commissioning_editor %}none{% endif %}">
+          {% if j.commissioning_editor %}
+            {{ j.commissioning_editor.name }}<br>
+            <span class="j-sub">{{ j.commissioning_editor.email }}</span>
+          {% else %}
+            — none —
+          {% endif %}
+        </div>
+        <div class="count">{{ j.mgr_count }}</div>
+        <div class="act"><a href="{% url 'journal-manage' j.pk %}">Manage →</a></div>
+      </div>
+    {% endfor %}
+  </div>
+</form>
+
+<script>
+(function () {
+  var all = document.getElementById("bulk-all");
+  var picks = document.querySelectorAll(".bulk-pick");
+  var count = document.getElementById("bulk-count");
+  function recount() {
+    var n = 0;
+    picks.forEach(function (p) { if (p.checked) n++; });
+    count.textContent = n + " selected";
+  }
+  all.addEventListener("change", function () {
+    picks.forEach(function (p) { p.checked = all.checked; });
+    recount();
+  });
+  picks.forEach(function (p) { p.addEventListener("change", recount); });
+  recount();
+})();
+</script>
 
 </div>
 {% endblock %}

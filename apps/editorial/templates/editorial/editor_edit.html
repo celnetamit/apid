@@ -1,0 +1,91 @@
+{% extends "profiles/base.html" %}
+{% block title %}{% if editor %}{{ editor.name }}{% else %}New editor{% endif %} — APID Office{% endblock %}
+{% block style %}
+ .page-head { background:linear-gradient(135deg, var(--ink) 0%, var(--primary-dark) 100%); color:#fff; padding:36px 0 28px; margin:-40px 0 28px; }
+ .page-head h1 { color:#fff; font-size:24px; margin:0 0 6px; }
+ .page-head .crumb { color:#dbeafe; font-size:13px; margin-bottom:10px; }
+ .page-head .crumb a { color:#dbeafe; }
+ .page-head p { color:#cbd5e1; margin:0; font-size:14px; }
+ .form { background:#fff; border:1px solid var(--line); border-radius:10px; padding:22px 26px; }
+ .form label { display:block; font-weight:600; font-size:13px; color:var(--ink); margin:14px 0 4px; }
+ .form input[type=text], .form input[type=email], .form input[type=tel], .form textarea
+   { width:100%; padding:9px 12px; border:1px solid var(--line); border-radius:6px; font-size:14px; }
+ .form textarea { min-height:70px; resize:vertical; }
+ .form .row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+ @media (max-width:600px) { .form .row { grid-template-columns:1fr; } }
+ .form .check { display:flex; align-items:center; gap:8px; margin-top:14px; font-size:14px; }
+ .form .actions { margin-top:22px; display:flex; gap:10px; align-items:center; }
+ .form .actions button { padding:10px 20px; background:var(--primary); color:#fff; border:0; border-radius:6px; font-weight:600; cursor:pointer; }
+ .form .actions .danger { background:#fff; color:#b91c3c; border:1px solid #f3c2bf; }
+ .journals-box { margin-top:22px; background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px 22px; }
+ .journals-box h2 { font-size:16px; margin:0 0 10px; }
+ .journals-box ul { margin:0; padding-left:20px; font-size:14px; color:var(--ink); }
+ .journals-box li { margin:3px 0; }
+ .journals-box .muted { color:var(--muted); font-size:13px; }
+{% endblock %}
+
+{% block content %}
+<div class="page-head">
+  <div class="wrap">
+    <div class="crumb"><a href="/office/">Office</a> · <a href="{% url 'editors-index' %}">Editorial staff</a> · {% if editor %}{{ editor.name }}{% else %}New{% endif %}</div>
+    <h1>{% if editor %}Edit editor{% else %}New editor{% endif %}</h1>
+    {% if editor %}<p>Changes here apply to every journal they commission.</p>{% endif %}
+  </div>
+</div>
+<div class="wrap">
+
+{% if messages %}{% for m in messages %}<div class="card" style="margin-bottom:14px;padding:12px 18px">{{ m }}</div>{% endfor %}{% endif %}
+
+<form method="post" class="form">
+  {% csrf_token %}
+  <div class="row">
+    <div>
+      <label for="id_name">Full name</label>
+      <input type="text" id="id_name" name="name" value="{{ editor.name|default:'' }}" required>
+    </div>
+    <div>
+      <label for="id_email">Email</label>
+      <input type="email" id="id_email" name="email" value="{{ editor.email|default:'' }}" required>
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label for="id_phone">Phone (optional)</label>
+      <input type="tel" id="id_phone" name="phone" value="{{ editor.phone|default:'' }}">
+    </div>
+    <div>
+      <label for="id_designation">Designation</label>
+      <input type="text" id="id_designation" name="designation"
+             value="{{ editor.designation|default:'Commissioning Editor' }}">
+    </div>
+  </div>
+  <label for="id_notes">Internal notes (optional)</label>
+  <textarea id="id_notes" name="notes">{{ editor.notes|default:'' }}</textarea>
+  <div class="check">
+    <input type="checkbox" id="id_active" name="active"
+           {% if not editor or editor.active %}checked{% endif %}>
+    <label for="id_active" style="margin:0">Active (shows in pickers &amp; signs certificates)</label>
+  </div>
+  <div class="actions">
+    <button type="submit">{% if editor %}Save changes{% else %}Create editor{% endif %}</button>
+    <a href="{% url 'editors-index' %}">Cancel</a>
+  </div>
+</form>
+
+{% if editor %}
+<div class="journals-box">
+  <h2>Journals commissioned by {{ editor.name }} ({{ journals|length }})</h2>
+  {% if journals %}
+    <ul>
+      {% for j in journals %}
+        <li><a href="{% url 'journal-manage' j.pk %}">{{ j.title }}</a>{% if j.abbreviation %} <span class="muted">· {{ j.abbreviation }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted">No journals yet. Assign from the <a href="{% url 'journals-index' %}">Journals page</a> using bulk edit.</p>
+  {% endif %}
+</div>
+{% endif %}
+
+</div>
+{% endblock %}

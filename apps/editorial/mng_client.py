@@ -56,10 +56,14 @@ def _signed(path: str, params: dict | None = None, timeout: int = 10):
         return json.loads(r.read().decode("utf-8"))
 
 
-def queue_summary() -> dict:
+def queue_summary(journal_ids: list[int] | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native decisions
+    # wisp 2026-10-03: optional journal_ids filter so a journal manager only
+    # sees counts for their own journals.
     from apps.editorial.models import Application, Decision
-    qs = Application.objects
+    qs = Application.objects.all()
+    if journal_ids is not None:
+        qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
     return {
         "new": qs.filter(decision=Decision.PENDING).count(),
         "under_review": 0,
@@ -73,8 +77,11 @@ def _queue_summary_legacy_mng() -> dict:
 
 
 def queue(*, status: str | None = None, journal: str | None = None,
-          q: str | None = None, page: int = 1, page_size: int = 50) -> dict:
+          q: str | None = None, page: int = 1, page_size: int = 50,
+          journal_ids: list[int] | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native queue from local DB
+    # wisp 2026-10-03: optional journal_ids filter so a journal manager only
+    # sees applications naming at least one of their journals.
     from apps.editorial.models import Application, Decision
     from django.db.models import Q
     qs = (Application.objects
@@ -89,6 +96,8 @@ def queue(*, status: str | None = None, journal: str | None = None,
         qs = qs.filter(decision=Decision.DECLINED)
     elif status == "withdrawn":
         qs = qs.filter(decision=Decision.WITHDRAWN)
+    if journal_ids is not None:
+        qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
     if q:
         qs = qs.filter(Q(member__full_name__icontains=q)
                        | Q(member__email__icontains=q)
