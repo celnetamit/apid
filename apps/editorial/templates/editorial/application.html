@@ -131,7 +131,11 @@
             <input type="hidden" name="choice_id" value="{{ c.choice_id }}">
             <div class="row">
               <label>Role on appointment (used only if accepted)</label>
-              <input type="text" name="role" value="{{ c.role_appointed|default:app.applying_for|default:'Reviewer' }}">
+              <select name="role">
+                {% for opt in canonical_roles %}
+                  <option value="{{ opt }}" {% if c.canonical_role == opt %}selected{% endif %}>{{ opt }}</option>
+                {% endfor %}
+              </select>
             </div>
             <div class="row">
               <label>Decision note (optional)</label>

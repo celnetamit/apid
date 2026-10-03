@@ -268,6 +268,7 @@ def application(request, pk):
     from apps.identity.models import Member
     member = Member.objects.filter(email__iexact=app_data["email"]).first()
 
+    from apps.editorial.mng_client import CANONICAL_ROLES
     return render(request, "editorial/application.html", {
         "app": app_data,
         "choices": choices,
@@ -277,6 +278,7 @@ def application(request, pk):
         "appointments": (member.appointments.select_related("journal").all()
                          if member else []),
         "user_is_office": user_is_office,
+        "canonical_roles": CANONICAL_ROLES,
     })
 
 
