@@ -868,11 +868,32 @@ def journal_manage(request, pk: int):
         role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
         ended_on__isnull=True)
         .select_related("member", "member__profile"))
-    board = (Appointment.objects.filter(journal=journal, ended_on__isnull=True)
-             .exclude(role__in=["Commissioning Editor", "Editor-in-Chief",
-                                "Associate Editor-in-chief", "Associate Editor-in-Chief"])
-             .select_related("member", "member__profile")
-             .order_by("role", "member__full_name")[:60])
+    board_raw = (Appointment.objects.filter(journal=journal, ended_on__isnull=True)
+                 .exclude(role__in=["Commissioning Editor", "Editor-in-Chief",
+                                    "Associate Editor-in-chief", "Associate Editor-in-Chief"])
+                 .select_related("member", "member__profile")
+                 .order_by("member__full_name"))
+    # Dedupe by member — the WP import collapsed multiple real people onto a
+    # single Member row when they shared a role-based mailbox, so a journal can
+    # legitimately show the same Member attached to 16 identical rows. Collapse
+    # them to one row per member with a role count beside each role.
+    import collections as _col
+    board_by_member: dict[int, dict] = {}
+    for a in board_raw:
+        row = board_by_member.setdefault(a.member_id, {
+            "member": a.member,
+            "profile": getattr(a.member, "profile", None),
+            "roles": _col.Counter(),
+        })
+        row["roles"][a.role] += 1
+    board = list(board_by_member.values())[:60]
+    for row in board:
+        row["role_summary"] = ", ".join(
+            f"{r} × {n}" if n > 1 else r
+            for r, n in sorted(row["roles"].items(), key=lambda x: (-x[1], x[0]))
+        )
+    board_total_people = len(board_by_member)
+    board_total_rows = sum(sum(r["roles"].values()) for r in board)
 
     # Application counts for this journal.
     app_counts = Application.objects.filter(
@@ -891,12 +912,31 @@ def journal_manage(request, pk: int):
               .order_by("-decided_at")
               .distinct()[:10])
 
+    # Managers panel: also dedupe by member (same WP import issue).
+    mgr_by_member: dict[int, dict] = {}
+    for a in managers:
+        row = mgr_by_member.setdefault(a.member_id, {
+            "member": a.member,
+            "roles": _col.Counter(),
+            "started_on": a.started_on,
+        })
+        row["roles"][a.role] += 1
+        if a.started_on and (not row["started_on"] or a.started_on < row["started_on"]):
+            row["started_on"] = a.started_on
+    managers_dedup = list(mgr_by_member.values())
+    for row in managers_dedup:
+        row["role_summary"] = ", ".join(
+            f"{r} × {n}" if n > 1 else r
+            for r, n in sorted(row["roles"].items(), key=lambda x: (-x[1], x[0]))
+        )
+
     return render(request, "editorial/journal_manage.html", {
         "journal": journal,
         "commissioning_editors": ces,
-        "managers": managers,
+        "managers": managers_dedup,
         "board": board,
-        "board_count": board.count() if hasattr(board, "count") else len(board),
+        "board_total_people": board_total_people,
+        "board_total_rows": board_total_rows,
         "app_counts": app_counts,
         "recent": recent,
         "user_is_office": user_is_office,

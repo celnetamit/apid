@@ -106,7 +106,7 @@
     <div class="icon no">✕</div>
   </div>
   <div class="kpi">
-    <div><div class="label">Managers</div><div class="n">{{ managers|length|add:commissioning_editors|length }}</div><div class="sub">CE + EIC + Associate EIC</div></div>
+    <div><div class="label">Board size</div><div class="n">{{ board_total_people }}</div><div class="sub">Distinct members on the board</div></div>
     <div class="icon yellow">⚑</div>
   </div>
 </div>
@@ -156,34 +156,37 @@
 {% if managers %}
 <div class="section-h"><h2>Editors-in-Chief &amp; Associates</h2><span class="meta">{{ managers|length }}</span></div>
 <div class="mgr-list">
-  {% for a in managers %}
+  {% for row in managers %}
     <div class="row">
-      {% if a.member.profile.picture %}
-        <div class="av"><img src="/media/{{ a.member.profile.picture }}" alt=""></div>
-      {% else %}<div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>{% endif %}
+      {% if row.member.profile.picture %}
+        <div class="av"><img src="/media/{{ row.member.profile.picture }}" alt=""></div>
+      {% else %}<div class="av">{{ row.member.display_name|slice:":1"|upper }}</div>{% endif %}
       <div class="who">
-        <div class="name"><a href="{% url 'profile' a.member.apid %}">{{ a.member.display_name }}</a></div>
-        <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}{% if a.started_on %} · Since {{ a.started_on|date:"M Y" }}{% endif %}</div>
+        <div class="name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name }}</a></div>
+        <div class="meta">APID {{ row.member.apid }} · {{ row.member.email }}{% if row.started_on %} · Since {{ row.started_on|date:"M Y" }}{% endif %}</div>
       </div>
-      <span class="role-pill eic">{{ a.role }}</span>
+      <span class="role-pill eic">{{ row.role_summary }}</span>
     </div>
   {% endfor %}
 </div>
 {% endif %}
 
 {% if board %}
-<div class="section-h"><h2>Editorial board</h2><span class="meta">{{ board_count }}</span></div>
+<div class="section-h">
+  <h2>Editorial board</h2>
+  <span class="meta">{{ board_total_people }} people · {{ board_total_rows }} role{{ board_total_rows|pluralize }}</span>
+</div>
 <div class="mgr-list">
-  {% for a in board %}
+  {% for row in board %}
     <div class="row">
-      {% if a.member.profile.picture %}
-        <div class="av"><img src="/media/{{ a.member.profile.picture }}" alt=""></div>
-      {% else %}<div class="av">{{ a.member.display_name|slice:":1"|upper }}</div>{% endif %}
+      {% if row.member.profile.picture %}
+        <div class="av"><img src="/media/{{ row.member.profile.picture }}" alt=""></div>
+      {% else %}<div class="av">{{ row.member.display_name|slice:":1"|upper }}</div>{% endif %}
       <div class="who">
-        <div class="name"><a href="{% url 'profile' a.member.apid %}">{{ a.member.display_name }}</a></div>
-        <div class="meta">APID {{ a.member.apid }} · {{ a.member.email }}</div>
+        <div class="name"><a href="{% url 'profile' row.member.apid %}">{{ row.member.display_name }}</a></div>
+        <div class="meta">APID {{ row.member.apid }} · {{ row.member.email }}</div>
       </div>
-      <span class="role-pill mem">{{ a.role }}</span>
+      <span class="role-pill mem">{{ row.role_summary }}</span>
     </div>
   {% endfor %}
 </div>
