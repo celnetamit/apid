@@ -52,7 +52,7 @@
     <select id="a-journal" name="journal">
       <option value="">All journals</option>
       {% for j in journal_choices %}
-        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }}</option>
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }} · {{ j.appt_count }}</option>
       {% endfor %}
     </select>
   </div>
@@ -100,7 +100,7 @@
           <div class="meta">{{ a.member.email }}</div>
         </td>
         <td>{{ a.member.apid }}</td>
-        <td>{{ a.journal.title|default:"—" }}</td>
+        <td>{{ a.journal.abbreviation|default:a.journal.title|default:"—" }}</td>
         <td>{{ a.role }}</td>
         <td class="when">{% if a.started_on %}{{ a.started_on|date:"M Y" }}{% else %}—{% endif %}</td>
         <td>

@@ -74,7 +74,7 @@
     <select id="d-journal" name="journal">
       <option value="">All journals</option>
       {% for j in journal_choices %}
-        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }}</option>
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }} · {{ j.app_count }}</option>
       {% endfor %}
     </select>
   </div>

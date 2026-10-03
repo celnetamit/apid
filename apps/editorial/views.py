@@ -105,15 +105,44 @@ def queue(request):
         ("declined",    "Declined",     counts.get("declined", 0)),
     ]
 
-    # Journal choices for the dropdown: office sees everything, a journal
-    # manager sees only the journals they manage. 274 journals is a lot of
-    # <option>s but the browser copes and <datalist> would need JS plumbing.
-    if user_is_office:
-        journal_choices = list(Journal.objects.order_by("title")
-                               .values("id", "title", "abbreviation"))
-    else:
-        journal_choices = list(manager_journals(request.user).order_by("title")
-                               .values("id", "title", "abbreviation"))
+    # Journal dropdown counts: Applications on each journal matching the
+    # current state tab + date range + search, so "jomme (12)" tells the user
+    # how many rows picking that journal would reveal. One grouped query over
+    # ApplicationJournal, then a Counter.
+    from collections import Counter as _Counter
+    from django.db.models import Q as _Q
+    from apps.editorial.models import ApplicationJournal, Decision as _Dec
+    base = Journal.objects.all() if user_is_office else manager_journals(request.user)
+    aj_qs = ApplicationJournal.objects.all()
+    if not user_is_office:
+        aj_qs = aj_qs.filter(journal__in=base)
+    if state in ("new", "pending"):
+        aj_qs = aj_qs.filter(application__decision=_Dec.PENDING)
+    elif state == "accepted":
+        aj_qs = aj_qs.filter(application__decision=_Dec.ACCEPTED)
+    elif state == "declined":
+        aj_qs = aj_qs.filter(application__decision=_Dec.DECLINED)
+    elif state == "withdrawn":
+        aj_qs = aj_qs.filter(application__decision=_Dec.WITHDRAWN)
+    if date_from:
+        aj_qs = aj_qs.filter(application__applied_at__date__gte=date_from)
+    if date_to:
+        aj_qs = aj_qs.filter(application__applied_at__date__lte=date_to)
+    if query:
+        aj_qs = aj_qs.filter(_Q(application__member__full_name__icontains=query)
+                             | _Q(application__member__email__icontains=query)
+                             | _Q(application__subject__icontains=query)
+                             | _Q(application__applying_for__icontains=query))
+    # Distinct application-ids per journal (one application can list the same
+    # journal twice but should count once).
+    counts_by_j = _Counter()
+    for jid in aj_qs.values_list("journal_id", "application_id").distinct():
+        if jid[0] is not None:
+            counts_by_j[jid[0]] += 1
+    journal_choices = [
+        {**j, "app_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
 
     return render(request, "editorial/queue.html", {
         "rows": rows,
@@ -182,12 +211,29 @@ def approved_profiles(request):
     rows = list(qs[:800])  # safety cap; paginate when it starts to pinch
     distinct_members = len({a.member_id for a in rows})
 
-    if user_is_office:
-        journal_choices = list(Journal.objects.order_by("title")
-                               .values("id", "title", "abbreviation"))
-    else:
-        journal_choices = list(manager_journals(request.user).order_by("title")
-                               .values("id", "title", "abbreviation"))
+    # Journal dropdown counts: active appointments per journal, honouring the
+    # same date filter and role-mailbox strip as the main table, so the number
+    # next to each option matches what picking it would show. One grouped
+    # query + a Counter beats 274 point counts.
+    from collections import Counter as _Counter
+    from django.db.models import F as _F
+    from django.db.models.functions import Lower as _Lower
+    base = Journal.objects.all() if user_is_office else manager_journals(request.user)
+    appt_qs = Appointment.objects.filter(ended_on__isnull=True)
+    if not user_is_office:
+        appt_qs = appt_qs.filter(journal__in=base)
+    if date_from:
+        appt_qs = appt_qs.filter(started_on__gte=date_from)
+    if date_to:
+        appt_qs = appt_qs.filter(started_on__lte=date_to)
+    appt_qs = appt_qs.annotate(_ml=_Lower("member__email"),
+                               _cl=_Lower("journal__commissioning_editor__email"))\
+                     .exclude(_ml=_F("_cl"))
+    counts_by_j = _Counter(appt_qs.values_list("journal_id", flat=True))
+    journal_choices = [
+        {**j, "appt_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
 
     return render(request, "editorial/approved.html", {
         "rows": rows,
@@ -902,13 +948,28 @@ def dashboard(request):
         for a in recent:
             a.accepted_appts = appts_by_app.get(a.pk, [])
 
-    # Journal choices for the filter dropdown.
-    if office:
-        journal_choices = list(Journal.objects.order_by("title")
-                               .values("id", "title", "abbreviation"))
-    else:
-        journal_choices = list(managed.order_by("title")
-                               .values("id", "title", "abbreviation"))
+    # Journal dropdown counts: decisions-per-journal matching the current date
+    # range. Scope matches the main table so the number next to each option
+    # reads the same.
+    from collections import Counter as _Counter
+    from apps.editorial.models import ApplicationJournal
+    base = Journal.objects.all() if office else managed
+    aj_qs = ApplicationJournal.objects.exclude(
+        application__decision__in=["", "pending"])
+    if not office:
+        aj_qs = aj_qs.filter(journal__in=base)
+    if rec_from:
+        aj_qs = aj_qs.filter(application__decided_at__date__gte=rec_from)
+    if rec_to:
+        aj_qs = aj_qs.filter(application__decided_at__date__lte=rec_to)
+    counts_by_j = _Counter()
+    for jid, aid in aj_qs.values_list("journal_id", "application_id").distinct():
+        if jid is not None:
+            counts_by_j[jid] += 1
+    journal_choices = [
+        {**j, "app_count": counts_by_j.get(j["id"], 0)}
+        for j in base.order_by("title").values("id", "title", "abbreviation")
+    ]
 
     return render(request, "editorial/dashboard.html", {
         "office": office,

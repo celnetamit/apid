@@ -176,7 +176,10 @@ def queue(*, status: str | None = None, journal: str | None = None,
             "email": getattr(a.member, "email", "") if a.member else "",
             "role": a.applying_for or "",
             "subject": a.subject or "",
-            "journals": ", ".join([(j.journal.title if j.journal else j.stated_title) for j in js if (j.journal or j.stated_title)]),
+            "journals": ", ".join([
+                (j.journal.abbreviation or j.journal.title) if j.journal else j.stated_title
+                for j in js if (j.journal or j.stated_title)
+            ]),
             "status": a.decision or "pending",
             "status_display": a.get_decision_display(),
             "applied_at": a.applied_at,
