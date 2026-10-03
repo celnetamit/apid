@@ -913,11 +913,22 @@ def journal_manage(request, pk: int):
         role__in=["Editor-in-Chief", "Associate Editor-in-chief", "Associate Editor-in-Chief"],
         ended_on__isnull=True)
         .select_related("member", "member__profile"))
+    # The journal's commissioning editor sits on a role mailbox like
+    # chemical@stmjournals.com. The WP import attributed every legacy editor who
+    # ever used that mailbox — EIC, Section Editor, Reviewer, Guest Editor — to
+    # the single Member record now holding that email. Those are not the CE's
+    # personal roles; strip them from the manager and board sections so the CE
+    # shows up only where they belong: as the signatory.
+    ce_email = (journal.commissioning_editor.email or "").strip().lower() \
+        if journal.commissioning_editor else ""
     board_raw = (Appointment.objects.filter(journal=journal, ended_on__isnull=True)
                  .exclude(role__in=["Commissioning Editor", "Editor-in-Chief",
                                     "Associate Editor-in-chief", "Associate Editor-in-Chief"])
                  .select_related("member", "member__profile")
                  .order_by("member__full_name"))
+    if ce_email:
+        board_raw = board_raw.exclude(member__email__iexact=ce_email)
+        managers = managers.exclude(member__email__iexact=ce_email)
     # Dedupe by member — the WP import collapsed multiple real people onto a
     # single Member row when they shared a role-based mailbox, so a journal can
     # legitimately show the same Member attached to 16 identical rows. Collapse
