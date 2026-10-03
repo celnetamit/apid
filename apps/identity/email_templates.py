@@ -93,6 +93,27 @@ DEFAULTS: Dict[str, Dict[str, str]] = {
         ),
         "variables_help": "{name} {email} {journal} {site}",
     },
+    "ce_daily_digest": {
+        "name": "Commissioning editor daily digest",
+        "subject": "APID digest for {date} — {pending} pending, {decided} decided",
+        "body": (
+            "Hello {name},\n\n"
+            "Here is today's APID activity across the {journal_count} journal{journal_count_s} you\n"
+            "commission.\n\n"
+            "  Pending applications:        {pending}\n"
+            "  Decisions in the last day:   {decided}\n"
+            "  Journals with an empty board: {empty_boards}\n\n"
+            "{detail_lines}\n"
+            "Open the queue to work the list:\n"
+            "  {site}/office/queue/\n\n"
+            "If a number here looks wrong, reply to this email or ping the office.\n\n"
+            "— The APID Office\n"
+            "Consortium e-Learning Network Pvt Ltd\n"
+        ),
+        "variables_help": (
+            "{name} {date} {journal_count} {pending} {decided} {empty_boards} "
+            "{detail_lines} {site}"),
+    },
     "editorial_invite": {
         "name": "Reviewer / editor invitation",
         "subject": "APID — Invitation to join {journal} as {role}",
