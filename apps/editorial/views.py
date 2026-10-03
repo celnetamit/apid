@@ -635,12 +635,15 @@ def apply(request):
         inst_profile_url = (request.POST.get("institutional_profile_url") or "").strip()
         years_exp = (request.POST.get("years_of_experience") or "").strip()
         phone = (request.POST.get("phone") or "").strip()
+        country = (request.POST.get("country") or "").strip()
 
         errors: list[str] = []
         if not full_name:
             errors.append("Please enter your full name.")
         if not phone:
             errors.append("Phone number is required.")
+        if not country:
+            errors.append("Country is required.")
         if not affiliation:
             errors.append("Affiliation is required.")
         if not affiliation_url or "." not in affiliation_url:
@@ -690,6 +693,7 @@ def apply(request):
                            affiliation_url=affiliation_url,
                            institutional_profile_url=inst_profile_url,
                            years_of_experience=years_exp, phone=phone,
+                           country=country,
                            cv_file=cv, photo_file=photo)
             # The applicant may correct what the registry filled in; their word wins.
             for field in ("designation", "department"):

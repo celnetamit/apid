@@ -70,6 +70,7 @@ def prefill(member) -> Dict[str, Any]:
         "email": member.email,
         "phone": member.contact_number or "",
         "country": (member.country or "")[:2].upper(),
+        "country_full": member.country or "",
         "affiliation": getattr(profile, "affiliation", "") or "",
         "designation": getattr(profile, "designation", "") or "",
         "department": getattr(profile, "department", "") or "",
@@ -157,9 +158,15 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
         setattr(profile, k, v)
     if profile_updates:
         profile.save()
-    if (payload.get("phone") or "").strip() and not member.contact_number:
+    update_fields: list[str] = []
+    if (payload.get("phone") or "").strip():
         member.contact_number = payload["phone"].strip()[:40]
-        member.save(update_fields=["contact_number"])
+        update_fields.append("contact_number")
+    if (payload.get("country") or "").strip():
+        member.country = payload["country"].strip()[:80]
+        update_fields.append("country")
+    if update_fields:
+        member.save(update_fields=update_fields)
 
     not_matched: List[str] = []
     create_kwargs = dict(
