@@ -3,21 +3,38 @@
 {% block office_section %}dashboard{% endblock %}
 {% block office_navsub %}{% if office %}Full access{% else %}{{ managed.count }} journal{{ managed.count|pluralize }}{% endif %}{% endblock %}
 {% block office_style %}
- .decisions .row { display:flex; align-items:flex-start; gap:14px; padding:14px 22px;
-                   border-bottom:1px solid var(--line); }
- .decisions .row:last-child { border-bottom:0; }
- .decisions .avatar { width:36px; height:36px; border-radius:50%;
-                      background:var(--primary-light); color:var(--primary);
-                      display:flex; align-items:center; justify-content:center;
-                      font-weight:700; font-size:13px; flex-shrink:0; }
- .decisions .who { flex:1; min-width:0; }
- .decisions .who .name { font-weight:600; font-size:14px; }
- .decisions .who .name a { color:var(--ink); }
- .decisions .who .meta { font-size:12px; color:var(--muted); margin-top:3px; }
- .decisions .who .meta a { color:var(--muted); }
- .decisions .when { font-size:12px; color:var(--muted); white-space:nowrap; }
- .decisions .empty { padding:28px; text-align:center; color:var(--muted); font-size:14px; }
- .decisions .artifacts { margin-top:6px; display:flex; flex-wrap:wrap; gap:12px; font-size:12px; }
+ .filter-bar { background:#fff; border:1px solid var(--line); border-radius:10px;
+               padding:12px 16px; margin:16px 0 12px;
+               display:flex; gap:10px; flex-wrap:wrap; align-items:end; }
+ .filter-bar label { display:block; font-size:11px; color:var(--muted);
+                     text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; font-weight:600; }
+ .filter-bar select, .filter-bar input { padding:7px 10px; border:1px solid var(--line);
+                                         border-radius:6px; font-size:13px; font-family:inherit; }
+ .filter-bar select { min-width:220px; }
+ .filter-bar button { padding:8px 16px; background:var(--primary); color:#fff;
+                      border:0; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+ .filter-bar .clear { padding:8px 12px; color:var(--muted); font-size:13px; text-decoration:none; }
+ .filter-bar .clear:hover { color:var(--primary); }
+ .count-note { font-size:13px; color:var(--muted); margin:0 0 10px; }
+ .count-note strong { color:var(--ink); }
+
+ table.datatable { width:100%; border-collapse:collapse; background:#fff;
+                   border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+ table.datatable thead th { background:#f8fafc; text-align:left; padding:10px 14px;
+                            font-size:12px; text-transform:uppercase; letter-spacing:.05em;
+                            color:var(--muted); font-weight:700; border-bottom:1px solid var(--line); }
+ table.datatable tbody td { padding:12px 14px; border-top:1px solid var(--line);
+                            font-size:14px; vertical-align:top; }
+ table.datatable tbody tr:first-child td { border-top:0; }
+ table.datatable tbody tr:hover { background:#f8fafc; }
+ table.datatable .applicant { font-weight:600; }
+ table.datatable .applicant a { color:var(--ink); }
+ table.datatable .applicant a:hover { color:var(--primary); }
+ table.datatable .meta { color:var(--muted); font-size:12px; margin-top:2px; }
+ table.datatable .meta a { color:var(--muted); }
+ table.datatable .artifacts { margin-top:6px; display:flex; flex-wrap:wrap; gap:10px; font-size:12px; }
+ table.datatable .when { white-space:nowrap; color:var(--muted); font-size:12px; }
+ table.datatable .empty { text-align:center; padding:28px; color:var(--muted); font-size:14px; }
 {% endblock %}
 
 {% block office_main %}
@@ -48,43 +65,82 @@
   </a>
 </div>
 
-<div class="panel decisions" style="margin-top:20px">
-    <div class="ph">
-      <h2>Recent decisions</h2>
-      <span><a href="/office/approved/" style="margin-right:14px">All approved →</a><a href="/office/queue/">Open queue →</a></span>
-    </div>
-    {% if recent %}
-      {% for app in recent %}
-      <div class="row">
-        <div class="avatar">{{ app.member.display_name|default:app.member.username|slice:":1"|upper }}</div>
-        <div class="who">
-          <div class="name"><a href="{% url 'profile' app.member.apid %}">{{ app.member.display_name|default:app.member.username }}</a></div>
-          <div class="meta">
-            <a href="{% url 'application' app.id %}">Application #{{ app.id }}</a>
-            {% if app.applying_for %} · {{ app.applying_for }}{% endif %}
-            {% if app.subject %} · {{ app.subject }}{% endif %}
-          </div>
-          {% if app.decision == "accepted" and app.accepted_appts %}
-            <div class="artifacts">
-              {% for a in app.accepted_appts %}
-                <span><strong>{{ a.journal.abbreviation|default:a.journal.title|truncatechars:28 }}:</strong>
-                  <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
-                  · <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
-                </span>
-              {% endfor %}
-            </div>
-          {% endif %}
-        </div>
-        {% if app.decision == "accepted" %}<span class="pill ok">Accepted</span>
-        {% elif app.decision == "declined" %}<span class="pill no">Declined</span>
-        {% else %}<span class="pill mut">{{ app.decision }}</span>{% endif %}
-        <div class="when">{{ app.decided_at|date:"d M Y" }}</div>
-      </div>
+<h2 style="font-size:16px;font-weight:700;margin:24px 0 0">Recent decisions</h2>
+<p style="margin:4px 0 0;font-size:13px"><a href="/office/approved/">All approved →</a> &nbsp;<a href="/office/queue/">Open queue →</a></p>
+
+<form class="filter-bar" method="get">
+  <div>
+    <label for="d-journal">Journal</label>
+    <select id="d-journal" name="journal">
+      <option value="">All journals</option>
+      {% for j in journal_choices %}
+        <option value="{{ j.id }}" {% if selected_journal == j.id %}selected{% endif %}>{{ j.abbreviation|default:j.title|truncatechars:48 }}</option>
       {% endfor %}
-    {% else %}
-      <div class="empty">No decisions yet.</div>
-    {% endif %}
-</div>
+    </select>
+  </div>
+  <div>
+    <label for="d-from">Decided from</label>
+    <input id="d-from" type="date" name="date_from" value="{{ date_from }}">
+  </div>
+  <div>
+    <label for="d-to">to</label>
+    <input id="d-to" type="date" name="date_to" value="{{ date_to }}">
+  </div>
+  <button type="submit">Apply</button>
+  {% if selected_journal or date_from or date_to %}
+    <a class="clear" href="?">Clear</a>
+  {% endif %}
+</form>
+
+<p class="count-note">Showing <strong>{{ recent|length }}</strong> of <strong>{{ decisions_total }}</strong> matching decision{{ decisions_total|pluralize }}.</p>
+
+<table class="datatable">
+  <thead>
+    <tr>
+      <th>Applicant</th>
+      <th>Application</th>
+      <th>Journals &amp; artifacts</th>
+      <th>Decision</th>
+      <th>Decided</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for app in recent %}
+      <tr>
+        <td class="applicant">
+          <a href="{% url 'profile' app.member.apid %}">{{ app.member.display_name|default:app.member.username }}</a>
+          <div class="meta">APID {{ app.member.apid }}</div>
+        </td>
+        <td>
+          <a href="{% url 'application' app.id %}">#{{ app.id }}</a>
+          {% if app.applying_for %}<div class="meta">{{ app.applying_for }}</div>{% endif %}
+          {% if app.subject %}<div class="meta">{{ app.subject|truncatechars:70 }}</div>{% endif %}
+        </td>
+        <td>
+          {% if app.decision == "accepted" and app.accepted_appts %}
+            {% for a in app.accepted_appts %}
+              <div class="artifacts">
+                <strong>{{ a.journal.abbreviation|default:a.journal.title|truncatechars:28 }}:</strong>
+                <a href="{% url 'editorial-certificate' a.pk %}" target="_blank" rel="noopener">📄 Cert</a>
+                <a href="{% url 'empanelment-letter' a.pk %}" target="_blank" rel="noopener">📄 Letter</a>
+              </div>
+            {% endfor %}
+          {% else %}
+            <span class="muted small">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if app.decision == "accepted" %}<span class="pill ok">Accepted</span>
+          {% elif app.decision == "declined" %}<span class="pill no">Declined</span>
+          {% else %}<span class="pill mut">{{ app.decision }}</span>{% endif %}
+        </td>
+        <td class="when">{{ app.decided_at|date:"d M Y" }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="5" class="empty">No decisions match these filters.</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
 
 {% if total_members is not None %}
 <h2 style="font-size:16px;font-weight:700;margin:28px 0 12px">Registry snapshot</h2>

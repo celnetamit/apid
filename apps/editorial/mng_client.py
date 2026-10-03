@@ -94,14 +94,25 @@ def _canonical_role(raw: str | None) -> str:
     return "Reviewer"
 
 
-def queue_summary(journal_ids: list[int] | None = None) -> dict:
+def queue_summary(journal_ids: list[int] | None = None, *,
+                  journal_id: int | None = None,
+                  date_from: str | None = None,
+                  date_to: str | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native decisions
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
-    # sees counts for their own journals.
+    # sees counts for their own journals; plus optional single-journal and
+    # date-range filters so the per-tab counts reflect what the user is
+    # looking at, not the whole system.
     from apps.editorial.models import Application, Decision
     qs = Application.objects.all()
     if journal_ids is not None:
         qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
+    if journal_id:
+        qs = qs.filter(journals__journal_id=journal_id).distinct()
+    if date_from:
+        qs = qs.filter(applied_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(applied_at__date__lte=date_to)
     return {
         "new": qs.filter(decision=Decision.PENDING).count(),
         "under_review": 0,
@@ -116,10 +127,14 @@ def _queue_summary_legacy_mng() -> dict:
 
 def queue(*, status: str | None = None, journal: str | None = None,
           q: str | None = None, page: int = 1, page_size: int = 50,
-          journal_ids: list[int] | None = None) -> dict:
+          journal_ids: list[int] | None = None,
+          journal_id: int | None = None,
+          date_from: str | None = None,
+          date_to: str | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native queue from local DB
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
-    # sees applications naming at least one of their journals.
+    # sees applications naming at least one of their journals; plus single
+    # journal + applied-date range filters for the per-view toolbar.
     from apps.editorial.models import Application, Decision
     from django.db.models import Q
     qs = (Application.objects
@@ -136,6 +151,12 @@ def queue(*, status: str | None = None, journal: str | None = None,
         qs = qs.filter(decision=Decision.WITHDRAWN)
     if journal_ids is not None:
         qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
+    if journal_id:
+        qs = qs.filter(journals__journal_id=journal_id).distinct()
+    if date_from:
+        qs = qs.filter(applied_at__date__gte=date_from)
+    if date_to:
+        qs = qs.filter(applied_at__date__lte=date_to)
     if q:
         qs = qs.filter(Q(member__full_name__icontains=q)
                        | Q(member__email__icontains=q)

@@ -58,11 +58,20 @@ def queue(request):
 
     Office sees every application; a journal manager (EIC/Associate EIC, or the
     commissioning editor set on the journal via EditorialStaff) sees only
-    applications naming at least one of their journals.
+    applications naming at least one of their journals. Journal + date filters
+    narrow it further; per-tab counts respect those filters so the user sees
+    numbers that match the table in front of them.
     """
     from apps.editorial.mng_client import queue as mng_queue, queue_summary
+    from apps.editorial.models import Journal
     state = request.GET.get("state", "new")
     query = (request.GET.get("q") or "").strip()
+    date_from = (request.GET.get("date_from") or "").strip() or None
+    date_to = (request.GET.get("date_to") or "").strip() or None
+    try:
+        journal_id = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        journal_id = None
 
     user_is_office = is_office(request.user)
     journal_ids = None
@@ -72,12 +81,13 @@ def queue(request):
             journal_ids = [-1]  # match nothing
 
     try:
-        counts = queue_summary(journal_ids=journal_ids)
+        counts = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
+                               date_from=date_from, date_to=date_to)
         page_data = mng_queue(
             status=state if state and state != "all" else None,
-            q=query or None,
-            page=1, page_size=100,
-            journal_ids=journal_ids,
+            q=query or None, page=1, page_size=100,
+            journal_ids=journal_ids, journal_id=journal_id,
+            date_from=date_from, date_to=date_to,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
@@ -95,6 +105,16 @@ def queue(request):
         ("declined",    "Declined",     counts.get("declined", 0)),
     ]
 
+    # Journal choices for the dropdown: office sees everything, a journal
+    # manager sees only the journals they manage. 274 journals is a lot of
+    # <option>s but the browser copes and <datalist> would need JS plumbing.
+    if user_is_office:
+        journal_choices = list(Journal.objects.order_by("title")
+                               .values("id", "title", "abbreviation"))
+    else:
+        journal_choices = list(manager_journals(request.user).order_by("title")
+                               .values("id", "title", "abbreviation"))
+
     return render(request, "editorial/queue.html", {
         "rows": rows,
         "shown": len(rows),
@@ -103,6 +123,10 @@ def queue(request):
         "query": query,
         "counts": counts,
         "tabs": tabs,
+        "journal_choices": journal_choices,
+        "selected_journal": journal_id,
+        "date_from": date_from or "",
+        "date_to": date_to or "",
     })
 
 
@@ -110,42 +134,71 @@ def queue(request):
 def approved_profiles(request):
     """A directory of every member with an active editorial appointment.
 
-    One row per member (not per appointment), so somebody with three roles
-    shows up once with all three listed. Office sees everybody; a journal
-    manager sees only members with an appointment on a journal they manage.
+    One row per appointment, laid out as a table so a column sort or an eye
+    scan can find a journal, a role or a date. Journal + since-date filters
+    narrow the table; the count under the toolbar reflects the filtered view.
     """
-    from apps.editorial.models import Appointment
+    from django.db.models import Q
+    from apps.editorial.models import Appointment, Journal
+    user_is_office = is_office(request.user)
     qs = (Appointment.objects.filter(ended_on__isnull=True)
           .select_related("member", "member__profile", "journal", "application"))
-    if not is_office(request.user):
+    if not user_is_office:
         managed_ids = list(manager_journals(request.user).values_list("id", flat=True))
         qs = qs.filter(journal_id__in=managed_ids)
+
+    # Suppress role-mailbox contamination: an appointment on a journal whose
+    # commissioning editor shares the Member's email is a legacy artefact,
+    # not that person's actual role. Same reason as journal_manage.
+    from django.db.models import F
+    from django.db.models.functions import Lower
+    qs = qs.annotate(_mem_email_l=Lower("member__email"),
+                     _ce_email_l=Lower("journal__commissioning_editor__email"))\
+           .exclude(_mem_email_l=F("_ce_email_l"))
+
     q = (request.GET.get("q") or "").strip()
+    try:
+        journal_id = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        journal_id = None
+    date_from = (request.GET.get("date_from") or "").strip() or None
+    date_to = (request.GET.get("date_to") or "").strip() or None
+
     if q:
-        from django.db.models import Q
         qs = qs.filter(
             Q(member__full_name__icontains=q)
             | Q(member__email__icontains=q)
+            | Q(member__apid__iexact=q)
             | Q(journal__title__icontains=q)
             | Q(role__icontains=q))
-    qs = qs.order_by("member__full_name", "-started_on")
+    if journal_id:
+        qs = qs.filter(journal_id=journal_id)
+    if date_from:
+        qs = qs.filter(started_on__gte=date_from)
+    if date_to:
+        qs = qs.filter(started_on__lte=date_to)
+    qs = qs.order_by("-started_on", "member__full_name", "role")
 
-    # Group by member. Dict preserves insertion order (Py 3.7+).
-    members = {}
-    for appt in qs[:800]:  # safety cap; paginate properly later if needed
-        row = members.setdefault(appt.member_id, {
-            "member": appt.member,
-            "profile": getattr(appt.member, "profile", None),
-            "appointments": [],
-        })
-        row["appointments"].append(appt)
+    rows = list(qs[:800])  # safety cap; paginate when it starts to pinch
+    distinct_members = len({a.member_id for a in rows})
+
+    if user_is_office:
+        journal_choices = list(Journal.objects.order_by("title")
+                               .values("id", "title", "abbreviation"))
+    else:
+        journal_choices = list(manager_journals(request.user).order_by("title")
+                               .values("id", "title", "abbreviation"))
 
     return render(request, "editorial/approved.html", {
-        "rows": list(members.values()),
-        "total_members": len(members),
-        "total_appointments": sum(len(r["appointments"]) for r in members.values()),
+        "rows": rows,
+        "total_appointments": len(rows),
+        "total_members": distinct_members,
         "query": q,
-        "user_is_office": is_office(request.user),
+        "journal_choices": journal_choices,
+        "selected_journal": journal_id,
+        "date_from": date_from or "",
+        "date_to": date_to or "",
+        "user_is_office": user_is_office,
     })
 
 
@@ -817,12 +870,28 @@ def dashboard(request):
         total_members = None
         with_appointment = None
 
-    # Recent decisions (last 10). Attach accepted appointments per row so the
-    # dashboard can offer certificate + empanelment-letter links inline.
+    # Recent decisions table — journal + date filters apply to the table and
+    # the shown count below it, so a CE scanning for "what happened on JOEE
+    # since Monday" sees the matching rows and nothing else.
+    try:
+        rec_journal = int(request.GET.get("journal") or 0) or None
+    except ValueError:
+        rec_journal = None
+    rec_from = (request.GET.get("date_from") or "").strip() or None
+    rec_to = (request.GET.get("date_to") or "").strip() or None
+
+    decisions_qs = local_apps.exclude(decision__in=["", "pending"])
+    if rec_journal:
+        decisions_qs = decisions_qs.filter(journals__journal_id=rec_journal).distinct()
+    if rec_from:
+        decisions_qs = decisions_qs.filter(decided_at__date__gte=rec_from)
+    if rec_to:
+        decisions_qs = decisions_qs.filter(decided_at__date__lte=rec_to)
+    decisions_total = decisions_qs.count()
+
     from apps.editorial.models import Appointment
-    recent = list(local_apps.exclude(decision__in=["", "pending"])
-                  .select_related("member")
-                  .order_by("-decided_at")[:10])
+    recent = list(decisions_qs.select_related("member")
+                  .order_by("-decided_at")[:25])
     if recent:
         app_ids = [a.pk for a in recent]
         appts_by_app = {}
@@ -832,6 +901,14 @@ def dashboard(request):
             appts_by_app.setdefault(appt.application_id, []).append(appt)
         for a in recent:
             a.accepted_appts = appts_by_app.get(a.pk, [])
+
+    # Journal choices for the filter dropdown.
+    if office:
+        journal_choices = list(Journal.objects.order_by("title")
+                               .values("id", "title", "abbreviation"))
+    else:
+        journal_choices = list(managed.order_by("title")
+                               .values("id", "title", "abbreviation"))
 
     return render(request, "editorial/dashboard.html", {
         "office": office,
@@ -845,6 +922,11 @@ def dashboard(request):
         "total_members": total_members,
         "with_appointment": with_appointment,
         "recent": recent,
+        "decisions_total": decisions_total,
+        "journal_choices": journal_choices,
+        "selected_journal": rec_journal,
+        "date_from": rec_from or "",
+        "date_to": rec_to or "",
     })
 
 @queue_or_manager
