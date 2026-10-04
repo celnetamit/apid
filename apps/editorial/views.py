@@ -943,6 +943,18 @@ def suggestions(request):
                                        role=role, limit=25)
             except Exception as exc:                             # noqa: BLE001
                 messages.error(request, f"Recommender error: {exc}")
+            # wisp 2026-10-04: drop candidates already serving on this journal
+            # with any active role -- showing an "Invite as Reviewer" button for
+            # someone who is already a Reviewer is the same bug as on the
+            # /profiles/ page.
+            if candidates:
+                from apps.editorial.models import Appointment
+                already = set(
+                    Appointment.objects.filter(
+                        journal_id=picked.id, ended_on__isnull=True
+                    ).values_list("member__apid", flat=True)
+                )
+                candidates = [c for c in candidates if c.get("apid") not in already]
 
     return render(request, "editorial/suggestions.html", {
         "journals": journals_qs,
