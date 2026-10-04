@@ -62,14 +62,17 @@ def profile(request, apid: str):
     if can_invite:
         # Journals the caller can staff (via manager, or all if office). Kept small
         # for the office too — the form gets a searchable dropdown, not a 276-item list.
+        # wisp 2026-10-04: exclude journals where the member is already serving
+        # (active appointment) so we don't offer to invite someone who is already there.
         from apps.editorial.access import manager_journals
         from apps.editorial.models import Journal
+        already_on = set(member.appointments.filter(ended_on__isnull=True)
+                                .values_list("journal_id", flat=True))
         if is_office(request.user):
-            invite_journals = list(Journal.objects.order_by("title")
-                                   .values("id", "title", "abbreviation"))
+            qs = Journal.objects.exclude(id__in=already_on).order_by("title")
         else:
-            invite_journals = list(manager_journals(request.user).order_by("title")
-                                   .values("id", "title", "abbreviation"))
+            qs = manager_journals(request.user).exclude(id__in=already_on).order_by("title")
+        invite_journals = list(qs.values("id", "title", "abbreviation"))
 
     # wisp 2026-10-02 pm: share widget + OpenGraph context.
     profile_url = request.build_absolute_uri(f"/profiles/{member.apid}/")

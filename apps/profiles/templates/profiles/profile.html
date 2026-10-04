@@ -101,8 +101,7 @@
         {% endif %}
       </div>
       {% endif %}
-      {# wisp 2026-10-03: share widget — owner only. Links printed in a paper
-         are shared by the person whose profile it is, not by every passerby. #}
+      {% comment %}wisp 2026-10-03: share widget — owner only. Links printed in a paper are shared by the person whose profile it is, not by every passerby.{% endcomment %}
       {% if is_owner %}
       <div class="share-row">
         <span class="share-label">Share</span>
@@ -172,7 +171,7 @@
     </table>
   {% endif %}
 
-  {% if can_invite %}
+  {% if can_invite and invite_journals %}
     <details style="margin-top:22px;padding:14px;border:1px solid var(--line);border-radius:8px;background:#f8fafc">
       <summary style="cursor:pointer;font-weight:600;color:var(--accent)">Invite this member →</summary>
       <form method="post" action="{% url 'invite-from-profile' member.apid %}" style="margin-top:12px">
