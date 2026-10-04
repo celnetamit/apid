@@ -9,9 +9,14 @@ revision trail rather than a pile of entries.
 
 from __future__ import annotations
 
+import re
+
 from django.db import models
 
 from apps.identity.models import Member
+
+_ORCID_ID_RE = re.compile(r"\d{4}-\d{4}-\d{4}-\d{3}[\dXx]")
+_SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,16}$")
 
 
 class Profile(models.Model):
@@ -75,6 +80,39 @@ class Profile(models.Model):
         """Enough to show publicly. Deliberately modest: a name and somewhere to
         place them."""
         return bool(self.affiliation and (self.department or self.designation))
+
+    # ORCID + Scholar come in from the live form as a mix: bare IDs, full
+    # URLs, parenthesised URLs ("(https://orcid.org/0000-0001-...)," and
+    # outright junk like "#403microbiology"). The template shouldn't try to
+    # build a URL from any of that — these two properties return a canonical
+    # link only when the stored value parses, and an empty string otherwise so
+    # the row is simply hidden.
+    @property
+    def orcid_url(self) -> str:
+        v = (self.orcid or "").strip()
+        if not v:
+            return ""
+        m = _ORCID_ID_RE.search(v)
+        if m:
+            return f"https://orcid.org/{m.group(0)}"
+        return ""
+
+    @property
+    def orcid_display(self) -> str:
+        v = (self.orcid or "").strip()
+        m = _ORCID_ID_RE.search(v)
+        return m.group(0) if m else ""
+
+    @property
+    def scholar_url(self) -> str:
+        v = (self.google_scholar_id or "").strip()
+        if not v:
+            return ""
+        if v.lower().startswith(("http://", "https://")):
+            return v if "scholar.google." in v.lower() else ""
+        if _SCHOLAR_ID_RE.match(v):
+            return f"https://scholar.google.com/citations?user={v}&hl=en"
+        return ""
 
 
 class Qualification(models.Model):

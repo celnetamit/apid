@@ -107,8 +107,8 @@ def profile(request, apid: str):
         _person["jobTitle"] = _profile.designation
     if _profile and _profile.country:
         _person["nationality"] = _profile.country
-    if _profile and _profile.orcid:
-        _person["sameAs"] = [f"https://orcid.org/{_profile.orcid}"]
+    if _profile and _profile.orcid_url:
+        _person["sameAs"] = [_profile.orcid_url]
     if _profile and _profile.biography:
         _person["description"] = _profile.biography[:500]
     person_ld_json = _json.dumps(_person, ensure_ascii=False)

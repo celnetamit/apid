@@ -148,10 +148,11 @@
 
   <dl class="facts">
     <dt>APID</dt><dd><strong>{{ member.apid }}</strong></dd>
-    {% if profile.orcid %}<dt>ORCID</dt>
-      <dd><a href="https://orcid.org/{{ profile.orcid }}">{{ profile.orcid }}</a></dd>{% endif %}
+    {% if profile.orcid_url %}<dt>ORCID</dt>
+      <dd><a href="{{ profile.orcid_url }}" rel="noopener">{{ profile.orcid_display }}</a></dd>{% endif %}
     {% if profile.scopus_id %}<dt>Scopus</dt><dd>{{ profile.scopus_id }}</dd>{% endif %}
-    {% if profile.google_scholar_id %}<dt>Google Scholar</dt><dd>{{ profile.google_scholar_id }}</dd>{% endif %}
+    {% if profile.scholar_url %}<dt>Google Scholar</dt>
+      <dd><a href="{{ profile.scholar_url }}" rel="noopener">Scholar profile</a></dd>{% endif %}
     {% if profile.city or profile.country %}<dt>Location</dt>
       <dd>{{ profile.city }}{% if profile.state %}, {{ profile.state }}{% endif %}{% if profile.country %}, {{ profile.country }}{% endif %}</dd>{% endif %}
     {% if profile.expertise %}<dt>Expertise</dt><dd>{{ profile.expertise }}</dd>{% endif %}
