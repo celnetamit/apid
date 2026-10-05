@@ -57,6 +57,34 @@
  .badge.info { background:#dbeafe; color:#1e3a8a; }
  .badge.good { background:#d1fae5; color:#064e3b; }
  .badge.muted { background:#e5e7eb; color:#374151; }
+ /* Pending-age badge, four tones from fresh (green) to older (red). */
+ a.age-chip, span.age-chip { display:inline-block; font-size:11px; padding:2px 8px;
+          border-radius:999px; font-weight:600; letter-spacing:.02em;
+          text-decoration:none; white-space:nowrap; margin-top:4px; }
+ a.age-chip:hover { filter:brightness(0.95); text-decoration:none; }
+ .age-chip.fresh    { background:#d1fae5; color:#064e3b; }
+ .age-chip.week     { background:#fef3c7; color:#78350f; }
+ .age-chip.twoweek  { background:#fed7aa; color:#7c2d12; }
+ .age-chip.older    { background:#fee2e2; color:#7f1d1d; }
+ /* Stats bar above the pending queue. */
+ .pending-stats { background:#fff; border:1px solid var(--line); border-radius:10px;
+                  padding:12px 16px; margin-bottom:12px; display:flex; gap:18px;
+                  flex-wrap:wrap; align-items:center; }
+ .pending-stats .stat { font-size:13px; color:var(--muted); }
+ .pending-stats .stat strong { color:var(--ink); font-size:16px; }
+ .pending-stats .sep { color:var(--line); }
+ .pending-stats .chip-row { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
+ .pending-stats .chip-row a, .pending-stats .chip-row .chip-off {
+     font-size:12px; padding:4px 10px; border-radius:999px;
+     text-decoration:none; font-weight:600; border:1px solid transparent; }
+ .pending-stats .chip-row a.chip-off { color:var(--muted); background:#f3f4f6; }
+ .pending-stats .chip-row a.chip-off:hover { background:#e5e7eb; }
+ .pending-stats .chip-row a.chip-on { color:#000; border-color:currentColor; }
+ .pending-stats .chip-row a.fresh.chip-on   { background:#d1fae5; color:#064e3b; }
+ .pending-stats .chip-row a.week.chip-on    { background:#fef3c7; color:#78350f; }
+ .pending-stats .chip-row a.twoweek.chip-on { background:#fed7aa; color:#7c2d12; }
+ .pending-stats .chip-row a.older.chip-on   { background:#fee2e2; color:#7f1d1d; }
+ .pending-stats .chip-row .zero { opacity:0.45; pointer-events:none; }
  .decide-btn { display:inline-block; padding:6px 12px; background:var(--accent); color:#000;
                border-radius:6px; font-size:12px; font-weight:600; text-decoration:none; }
  .decide-btn:hover { background:var(--accent-dark); color:#000; }
@@ -75,13 +103,39 @@
 <div class="tabs">
   {% for value, label, count in tabs %}
     <a class="tab {% if state == value %}on{% endif %}"
-       href="?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+       href="?state={{ value }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if age and value == 'new' %}&age={{ age }}{% endif %}">
        {{ label }} <span class="muted">· {{ count }}</span>
     </a>
   {% endfor %}
   <a class="tab {% if state == 'all' %}on{% endif %}"
      href="?state=all{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">All</a>
 </div>
+
+{% if pending_stats %}
+<div class="pending-stats">
+  <div class="stat"><strong>{{ pending_stats.count }}</strong> pending</div>
+  <span class="sep">·</span>
+  <div class="stat">avg <strong>{{ pending_stats.avg_days }}d</strong></div>
+  <span class="sep">·</span>
+  <div class="stat">median <strong>{{ pending_stats.median_days }}d</strong></div>
+  <span class="sep">·</span>
+  <div class="stat">oldest <strong>{{ pending_stats.oldest_days }}d</strong></div>
+  <div class="chip-row">
+    {% for b in pending_stats.buckets %}
+      <a class="{{ b.key }} {% if age == b.key %}chip-on{% else %}chip-off{% endif %}{% if b.count == 0 %} zero{% endif %}"
+         href="?state={{ state }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}{% if age != b.key %}&age={{ b.key }}{% endif %}">
+        {{ b.label }} · {{ b.count }}
+      </a>
+    {% endfor %}
+    {% if age %}
+      <a class="chip-off"
+         href="?state={{ state }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+        × clear age
+      </a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 
 <form class="filter-bar" method="get">
   <input type="hidden" name="state" value="{{ state }}">
@@ -114,7 +168,7 @@
 
 <p class="count-note">
   <span>Page <strong>{{ page_num }}</strong> of <strong>{{ total_pages }}</strong> · showing <strong>{{ shown }}</strong> of <strong>{{ total }}</strong> application{{ total|pluralize }}.</span>
-  <a class="export-btn" href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&export=csv">⬇ Export CSV</a>
+  <a class="export-btn" href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}{% if age %}&age={{ age }}{% endif %}&export=csv">⬇ Export CSV</a>
 </p>
 
 <table class="datatable">
@@ -145,6 +199,13 @@
         </td>
         <td><span class="badge {{ r.state_tone }}">{{ r.state_label }}</span></td>
         <td class="when">{% if r.applied_at %}{{ r.applied_at|date:"Y-m-d" }}{% endif %}
+          {% if r.age_bucket %}
+            <div><a class="age-chip {{ r.age_bucket }}"
+                    title="Click to filter the queue to this age range"
+                    href="?state={{ state }}&age={{ r.age_bucket }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if selected_journal %}&journal={{ selected_journal }}{% endif %}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}">
+                {{ r.pending_days }} day{{ r.pending_days|pluralize }} pending
+            </a></div>
+          {% endif %}
           {% if r.decided_at %}<div class="meta">decided {{ r.decided_at|date:"Y-m-d" }}</div>{% endif %}
         </td>
         <td>{% if r.cv_url %}<a href="{{ r.cv_url }}" target="_blank" rel="noopener" style="font-size:12px">📎 CV</a>{% else %}<span class="muted small">—</span>{% endif %}</td>
@@ -158,9 +219,9 @@
 
 {% if total_pages > 1 %}
 <div class="pager">
-  {% if page_num > 1 %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&page={{ page_num|add:'-1' }}">← Prev</a>{% endif %}
+  {% if page_num > 1 %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}{% if age %}&age={{ age }}{% endif %}&page={{ page_num|add:'-1' }}">← Prev</a>{% endif %}
   <span class="mut">Page {{ page_num }} of {{ total_pages }}</span>
-  {% if page_num < total_pages %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}&page={{ page_num|add:'1' }}">Next →</a>{% endif %}
+  {% if page_num < total_pages %}<a href="?state={{ state }}&journal={{ selected_journal|default:'' }}&date_from={{ date_from }}&date_to={{ date_to }}&q={{ query|urlencode }}{% if age %}&age={{ age }}{% endif %}&page={{ page_num|add:'1' }}">Next →</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

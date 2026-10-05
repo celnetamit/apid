@@ -97,6 +97,11 @@ def queue(request):
         journal_id = int(request.GET.get("journal") or 0) or None
     except ValueError:
         journal_id = None
+    # wisp 2026-10-05: pending-age bucket filter (fresh/week/twoweek/older).
+    # Only meaningful on the Pending tab; silently ignored elsewhere.
+    age = (request.GET.get("age") or "").strip() or None
+    if state not in ("new", "pending"):
+        age = None
 
     user_is_office = is_office(request.user)
     journal_ids = None
@@ -115,17 +120,20 @@ def queue(request):
         page_num = 1
     page_size = 10_000 if want_csv else 50
     try:
-        counts = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
-                               date_from=date_from, date_to=date_to)
+        summary = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
+                                date_from=date_from, date_to=date_to,
+                                with_pending_stats=(state in ("new", "pending")))
+        counts = {k: v for k, v in summary.items() if k != "pending_stats"}
+        pending_stats = summary.get("pending_stats")
         page_data = mng_queue(
             status=state if state and state != "all" else None,
             q=query or None, page=page_num, page_size=page_size,
             journal_ids=journal_ids, journal_id=journal_id,
-            date_from=date_from, date_to=date_to,
+            date_from=date_from, date_to=date_to, age=age,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
-        counts, page_data = {}, {"rows": [], "total": 0}
+        counts, pending_stats, page_data = {}, None, {"rows": [], "total": 0}
 
     rows = page_data.get("rows", [])
     for r in rows:
@@ -210,6 +218,8 @@ def queue(request):
         "state": state,
         "query": query,
         "counts": counts,
+        "pending_stats": pending_stats,
+        "age": age or "",
         "tabs": tabs,
         "journal_choices": journal_choices,
         "selected_journal": journal_id,
