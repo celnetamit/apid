@@ -16,6 +16,7 @@ from django.contrib.auth.views import LoginView
 from django.views.static import serve
 
 from apps.editorial import invite_views
+from apps.editorial import stats_api as editorial_stats_api
 from apps.editorial import views as editorial
 from apps.identity import lookup
 from apps.identity import views as identity
@@ -96,6 +97,8 @@ urlpatterns = [
 
     # The editorial office.
     path("apply/", editorial.apply, name="apply"),
+    # Shared-key aggregate stats for the ops cockpit. 404 without the header.
+    path("_apid/stats.json", editorial_stats_api.stats_json, name="apid-stats-json"),
     # Invitations: office → member
     path("profiles/<str:apid>/invite/", invite_views.invite_from_profile,
          name="invite-from-profile"),

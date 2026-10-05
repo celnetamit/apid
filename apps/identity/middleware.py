@@ -31,6 +31,10 @@ ALWAYS_OPEN = ("/accounts/login", "/accounts/logout", "/accounts/register",
                # would only turn a 401 into a redirect to a login page no service can
                # fill in.
                "/api/identity/", "/api/reflect/", "/invites/",
+               # wisp 2026-10-05: shared-key aggregate stats for the ops cockpit.
+               # Gated by APID_STATS_KEY inside the view; without that var the
+               # endpoint 404s, so this prefix never opens anything by itself.
+               "/_apid/",
                # The homepage showcases 12 profiles publicly; individual profile pages
                # are linked from it so they must also be reachable without a login.
                # Legacy /apid-profiles/ redirects go to /profiles/ so they stay open too.
