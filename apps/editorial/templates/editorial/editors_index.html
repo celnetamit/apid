@@ -44,7 +44,15 @@
         <td class="num" style="font-weight:700">
           {% if e.journal_count %}<a href="{% url 'journals-index' %}?editor={{ e.pk }}" style="color:var(--primary)">{{ e.journal_count }}</a>{% else %}0{% endif %}
         </td>
-        <td style="text-align:right"><a href="{% url 'editor-edit' e.pk %}">Edit →</a></td>
+        <td style="text-align:right;white-space:nowrap">
+          {% if e.member_apid %}
+            <a href="{% url 'impersonate' e.member_apid %}"
+               onclick="return confirm('Sign in as {{ e.name|escapejs }}?\n\nUse the red banner on top to return.')"
+               style="color:var(--muted);margin-right:14px"
+               title="Open the queue as this staff member">Login as →</a>
+          {% endif %}
+          <a href="{% url 'editor-edit' e.pk %}">Edit →</a>
+        </td>
       </tr>
     {% empty %}
       <tr><td colspan="4" class="empty">No editors yet — click <strong>New editor</strong> above to add one.</td></tr>

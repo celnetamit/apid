@@ -1443,16 +1443,34 @@ def email_template_edit(request, pk: int):
 def editors_index(request):
     """Editorial-staff roster. Click a row to edit; one place for all their journals."""
     from django.db.models import Count
+    from django.db.models.functions import Lower
     from apps.editorial.models import EditorialStaff
+    from apps.identity.models import Member
     q = (request.GET.get("q") or "").strip()
-    editors = EditorialStaff.objects.annotate(journal_count=Count("journals"))
+    editors_qs = EditorialStaff.objects.annotate(journal_count=Count("journals"))
     if q:
-        editors = editors.filter(Q(name__icontains=q) | Q(email__icontains=q))
-    editors = editors.order_by("-active", "-journal_count", "name")
+        editors_qs = editors_qs.filter(Q(name__icontains=q) | Q(email__icontains=q))
+    editors = list(editors_qs.order_by("-active", "-journal_count", "name"))
+
+    # Match each staff email to an active Member so the roster can offer a
+    # one-click "Login as" shortcut. One case-insensitive IN query — not an
+    # N+1 — and we only expose the apid when the Member is active, so an
+    # ex-employee's lingering account can't be re-entered through this door.
+    emails_lower = {(e.email or "").strip().lower() for e in editors if e.email}
+    member_by_email: dict[str, str] = {}
+    if emails_lower:
+        rows = (Member.objects
+                .annotate(email_lc=Lower("email"))
+                .filter(email_lc__in=emails_lower, is_active=True)
+                .values("email_lc", "apid"))
+        member_by_email = {r["email_lc"]: r["apid"] for r in rows}
+    for e in editors:
+        e.member_apid = member_by_email.get((e.email or "").strip().lower())
+
     return render(request, "editorial/editors_index.html", {
         "editors": editors,
         "q": q,
-        "total": editors.count(),
+        "total": len(editors),
     })
 
 
