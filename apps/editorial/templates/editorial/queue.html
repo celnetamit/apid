@@ -178,7 +178,6 @@
       <th>Role &amp; subject</th>
       <th>Journals</th>
       <th>Status</th>
-      <th>Applied</th>
       <th>CV</th>
       <th></th>
     </tr>
@@ -197,8 +196,9 @@
         <td>
           {% if r.journals %}<div class="meta">{{ r.journals|truncatechars:200 }}</div>{% else %}<span class="muted small">—</span>{% endif %}
         </td>
-        <td><span class="badge {{ r.state_tone }}">{{ r.state_label }}</span></td>
-        <td class="when">{% if r.applied_at %}{{ r.applied_at|date:"Y-m-d" }}{% endif %}
+        <td class="when">
+          <span class="badge {{ r.state_tone }}">{{ r.state_label }}</span>
+          {% if r.applied_at %}<div class="meta">applied {{ r.applied_at|date:"Y-m-d" }}</div>{% endif %}
           {% if r.age_bucket %}
             <div><a class="age-chip {{ r.age_bucket }}"
                     title="Click to filter the queue to this age range"
@@ -212,7 +212,7 @@
         <td>{% if not r.decided_at %}<a href="{% url 'application' r.pk %}" class="decide-btn">Decide →</a>{% endif %}</td>
       </tr>
     {% empty %}
-      <tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>
+      <tr><td colspan="6" class="empty">Nothing matches these filters.</td></tr>
     {% endfor %}
   </tbody>
 </table>
