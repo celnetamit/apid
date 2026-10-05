@@ -219,6 +219,7 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
         member.save(update_fields=update_fields)
 
     not_matched: List[str] = []
+    from django.utils import timezone as _tz
     create_kwargs = dict(
         member=member,
         applying_for=(picks[0].get("role") or "").strip()[:120] if picks else "",
@@ -228,6 +229,10 @@ def send(payload: Dict[str, Any], url: str = "") -> Tuple[bool, str, List[str]]:
         stated_department=(payload.get("department") or "").strip()[:200],
         stated_affiliation=(payload.get("affiliation") or "").strip()[:255],
         note=(payload.get("statement") or "").strip(),
+        # wisp 2026-10-05: applied_at was unset on live applications (the import
+        # command set it from entry.created_at; this path didn't), so every live
+        # submission since cutover showed no date and no age chip in the queue.
+        applied_at=_tz.now(),
     )
     cv = payload.get("cv_file")
     if cv is not None:
