@@ -61,6 +61,8 @@
  .quick-actions a .ico { font-size:18px; width:24px; text-align:center; }
 
  .empty-small { padding:20px; text-align:center; color:var(--muted); font-size:13px; }
+ .sub-h { padding:4px 20px 8px; font-size:11px; font-weight:700; color:var(--muted);
+          text-transform:uppercase; letter-spacing:.06em; }
 
  .inv-list .row { padding:14px 20px; border-top:1px solid var(--line); }
  .inv-list .row:first-child { border-top:0; }
@@ -144,13 +146,18 @@
 
 <div>
 
-<!-- APPOINTMENTS with certificate/letter download -->
+<!-- Editorial activity: appointments (where I serve) + applications (what I've asked for) -->
 <div class="box">
   <div class="box-h">
-    <h3>Editorial board appointments</h3>
-    {% if is_journal_manager %}<a href="/office/">Open office →</a>{% endif %}
+    <h3>Editorial activity</h3>
+    <span>
+      {% if is_journal_manager %}<a href="/office/" style="margin-right:14px">Open office →</a>{% endif %}
+      <a href="/apply/">New application →</a>
+    </span>
   </div>
+
   {% if appointments %}
+    <div class="sub-h">Current boards</div>
     <div class="appt-list">
       {% for a in appointments %}
         <div class="row">
@@ -168,15 +175,10 @@
         </div>
       {% endfor %}
     </div>
-  {% else %}
-    <div class="empty-small">You are not currently serving on any editorial board. <a href="/apply/">Apply to a board →</a></div>
   {% endif %}
-</div>
 
-<!-- APPLICATIONS from mng -->
-<div class="box">
-  <div class="box-h"><h3>Your board applications</h3><a href="/apply/">New application →</a></div>
   {% if applications %}
+    <div class="sub-h"{% if appointments %} style="margin-top:18px"{% endif %}>Applications</div>
     <div class="app-list">
       {% for app in applications %}
         <div class="row">
@@ -192,8 +194,10 @@
         </div>
       {% endfor %}
     </div>
-  {% else %}
-    <div class="empty-small">No applications yet. <a href="/apply/">Apply to join an editorial board →</a></div>
+  {% endif %}
+
+  {% if not appointments and not applications %}
+    <div class="empty-small">You're not serving on any editorial board yet, and haven't applied. <a href="/apply/">Apply to join a board →</a></div>
   {% endif %}
 </div>
 
