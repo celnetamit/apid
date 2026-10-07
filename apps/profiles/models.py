@@ -235,3 +235,48 @@ class CareerPosition(_CvEntry):
 
     def __str__(self) -> str:
         return f"{self.role} at {self.organisation}".strip()
+
+
+class ClaimedRole(_CvEntry):
+    """A role a member says they hold on a journal — *claimed*, not verified.
+
+    Three live forms recorded the same thing: Contributions (form 67), Role Update
+    (form 80, 264 entries, 47 of them filed signed-out) and the Contribution rows of
+    Editorial Registration (form 98). `status` is what the office last set on it —
+    "Waiting for Approval" for nearly all of them — so nothing here may be shown as a
+    fact about the member. Real appointments are `editorial.Appointment`.
+    """
+
+    kind = models.CharField(max_length=40, blank=True)       # Journal, Book, …
+    subject = models.CharField(max_length=160, blank=True)
+    journal = models.CharField(max_length=255)
+    abbreviation = models.CharField(max_length=60, blank=True)
+    journal_url = models.URLField(max_length=500, blank=True)
+    role = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=40, blank=True)
+    remark = models.TextField(blank=True)
+    source_form = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.role} — {self.journal}"
+
+
+class ReviewedPaper(_CvEntry):
+    """Reviewer Contribution Form (form 205; the papers are child form 206)."""
+
+    subject = models.CharField(max_length=160, blank=True)
+    journal = models.CharField(max_length=255, blank=True)
+    abbreviation = models.CharField(max_length=60, blank=True)
+    paper_title = models.CharField(max_length=500, blank=True)
+    published_on = models.DateField(null=True, blank=True)
+    papers_count = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-published_on"]
+
+    def __str__(self) -> str:
+        return self.paper_title or self.journal

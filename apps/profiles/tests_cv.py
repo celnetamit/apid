@@ -26,3 +26,16 @@ class CvSectionsTests(TestCase):
         self.assertEqual(self.member.conferences.count(), 1)
         self.assertEqual(self.member.projects.count(), 1)
         self.assertEqual(self.member.careerpositions.count(), 1)
+
+
+class MemberHistoryTests(TestCase):
+    def test_models_hang_off_the_member(self):
+        from apps.identity.models import SupportRequest
+        from apps.profiles.models import ClaimedRole, ReviewedPaper
+        m = Member.objects.create(username="hist", apid="800778", full_name="H")
+        ClaimedRole.objects.create(member=m, journal="J", role="Reviewer", wp_entry_id=1)
+        ReviewedPaper.objects.create(member=m, paper_title="T", wp_entry_id=2)
+        SupportRequest.objects.create(member=m, email="h@example.com", issue="x", wp_entry_id=3)
+        self.assertEqual(m.claimedroles.count(), 1)
+        self.assertEqual(m.reviewedpapers.count(), 1)
+        self.assertEqual(m.support_requests.count(), 1)

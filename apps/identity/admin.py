@@ -11,7 +11,7 @@ each row came from, and a row whose origin has been edited cannot be traced or r
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from apps.identity.models import Member, MemberRole
+from apps.identity.models import Member, MemberRole, SupportRequest
 
 
 class RoleInline(admin.TabularInline):
@@ -45,3 +45,12 @@ class MemberAdmin(UserAdmin):
                 "fields": ("username", "apid", "full_name", "email",
                            "password1", "password2")}),
     )
+
+
+@admin.register(SupportRequest)
+class SupportRequestAdmin(admin.ModelAdmin):
+    list_display = ("issue", "name", "email", "category", "status", "created_at")
+    list_filter = ("category", "status")
+    search_fields = ("name", "email", "issue", "description")
+    raw_id_fields = ("member",)
+    readonly_fields = ("wp_entry_id", "help_id", "created_at")

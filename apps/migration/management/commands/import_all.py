@@ -28,6 +28,7 @@ STEPS = [
     ("members", "import_members", {}),
     ("profiles, publications, biographies", "import_profiles", {}),
     ("awards, conferences, projects, career history", "import_cv_sections", {}),
+    ("role claims, reviewed papers, help-desk history", "import_member_history", {}),
     ("journals, applications, appointments", "import_editorial", {}),
     ("media WordPress moved to Google Cloud", "fetch_offloaded", {}),
     ("attachment ids → file paths", "resolve_files", {}),

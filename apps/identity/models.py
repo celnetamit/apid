@@ -176,3 +176,31 @@ class EmailLog(models.Model):
 
     def __str__(self) -> str:
         return f"{self.sent_at:%Y-%m-%d %H:%M} → {self.to_address}: {self.subject[:40]}"
+
+
+class SupportRequest(models.Model):
+    """A message sent through Contact Us NEW (form 122, 291 entries) — the help desk's
+    history, kept so a member who writes in again can be answered with the past in view.
+
+    `member` is empty for the 40-odd people who wrote in without an account and could
+    not be matched by email; `email` is what identifies them then.
+    """
+
+    member = models.ForeignKey("identity.Member", null=True, blank=True,
+                               on_delete=models.SET_NULL, related_name="support_requests")
+    name = models.CharField(max_length=255, blank=True)
+    email = models.EmailField(blank=True, db_index=True)
+    category = models.CharField(max_length=60, blank=True)
+    issue = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(max_length=40, blank=True)
+    reply = models.TextField(blank=True)
+    help_id = models.IntegerField(null=True, blank=True)
+    wp_entry_id = models.IntegerField(null=True, blank=True, unique=True, db_index=True)
+    created_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.name or self.email}: {self.issue}"[:80]

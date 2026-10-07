@@ -1,7 +1,7 @@
 from django.contrib import admin
 
-from apps.profiles.models import (Award, CareerPosition, Conference, LegacyProfileLink,
-                                  Profile, Project, Qualification)
+from apps.profiles.models import (Award, CareerPosition, ClaimedRole, Conference, LegacyProfileLink,
+                                  Profile, Project, Qualification, ReviewedPaper)
 
 
 class QualificationInline(admin.TabularInline):
@@ -60,3 +60,16 @@ class ProjectAdmin(_CvAdmin):
 class CareerPositionAdmin(_CvAdmin):
     list_display = ("role", "organisation", "member", "started_on", "is_current")
     search_fields = _CvAdmin.search_fields + ("organisation", "role")
+
+
+@admin.register(ClaimedRole)
+class ClaimedRoleAdmin(_CvAdmin):
+    list_display = ("role", "journal", "member", "status", "source_form")
+    list_filter = ("status", "source_form", "role")
+    search_fields = _CvAdmin.search_fields + ("journal", "role")
+
+
+@admin.register(ReviewedPaper)
+class ReviewedPaperAdmin(_CvAdmin):
+    list_display = ("paper_title", "journal", "member", "published_on")
+    search_fields = _CvAdmin.search_fields + ("paper_title", "journal")
