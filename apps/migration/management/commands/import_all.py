@@ -8,7 +8,7 @@ was a 404.
 
 So the order stops being something to remember:
 
-    members → profiles → editorial → fetch the offloaded media → resolve the files
+    members → profiles → cv sections → editorial → fetch the offloaded media → resolve the files
 
 Idempotent end to end, which is the point — this runs nightly against a fresh snapshot
 until cutover, and again on the morning of it.
@@ -27,6 +27,7 @@ from django.core.management.base import BaseCommand
 STEPS = [
     ("members", "import_members", {}),
     ("profiles, publications, biographies", "import_profiles", {}),
+    ("awards, conferences, projects, career history", "import_cv_sections", {}),
     ("journals, applications, appointments", "import_editorial", {}),
     ("media WordPress moved to Google Cloud", "fetch_offloaded", {}),
     ("attachment ids → file paths", "resolve_files", {}),

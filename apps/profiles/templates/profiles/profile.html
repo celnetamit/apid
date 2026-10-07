@@ -213,6 +213,43 @@
     </div>
   {% endif %}
 
+  {% if career %}
+    <h2>Career</h2>
+    <ul class="pubs">
+      {% for c in career %}
+        <li><strong>{{ c.role|default:"Position" }}</strong>, {{ c.organisation }}{% if c.location %}, {{ c.location }}{% endif %}
+          {% if c.started_on %}<span style="color:var(--muted)">({{ c.started_on|date:"M Y" }} – {% if c.is_current %}present{% elif c.ended_on %}{{ c.ended_on|date:"M Y" }}{% endif %})</span>{% elif c.is_current %}<span style="color:var(--muted)">(present)</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if awards %}
+    <h2>Honors &amp; awards</h2>
+    <ul class="pubs">
+      {% for a in awards %}
+        <li><strong>{{ a.name }}</strong>{% if a.institution %}, {{ a.institution }}{% endif %}{% if a.awarded_on %} <span style="color:var(--muted)">({{ a.awarded_on|date:"Y" }})</span>{% endif %}{% if a.description %}<br><span style="color:var(--muted)">{{ a.description }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if conferences %}
+    <h2>Conferences</h2>
+    <ul class="pubs">
+      {% for c in conferences %}
+        <li>{% if c.url %}<a href="{{ c.url }}">{{ c.name }}</a>{% else %}{{ c.name }}{% endif %}{% if c.organizer %}, {{ c.organizer }}{% endif %}{% if c.location %}, {{ c.location }}{% endif %}{% if c.starts_on %} <span style="color:var(--muted)">({{ c.starts_on|date:"M Y" }})</span>{% endif %}{% if c.roles %} <span style="color:var(--muted)">· {{ c.roles }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if projects %}
+    <h2>Projects</h2>
+    <ul class="pubs">
+      {% for p in projects %}
+        <li><strong>{{ p.title }}</strong>{% if p.sponsor %}, {{ p.sponsor }}{% endif %}{% if p.stage %} <span style="color:var(--muted)">· {{ p.stage }}</span>{% endif %}{% if p.goal %}<br><span style="color:var(--muted)">{{ p.goal }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
   {% if publications %}
     <h2>Publications</h2>
     <ol class="pubs">

@@ -155,3 +155,83 @@ class LegacyProfileLink(models.Model):
 
     def __str__(self) -> str:
         return f"/apid-profiles/apid/{self.wp_entry_id}/ → {self.member.apid}"
+
+
+class _CvEntry(models.Model):
+    """What the four CV sections share: whose it is, and which live entry it came from.
+
+    `wp_entry_id` is unique so the import can run again and update rather than repeat.
+    """
+
+    member = models.ForeignKey(Member, on_delete=models.CASCADE,
+                               related_name="%(class)ss")
+    wp_entry_id = models.IntegerField(null=True, blank=True, unique=True, db_index=True)
+
+    class Meta:
+        abstract = True
+
+
+class Award(_CvEntry):
+    """Honors & Awards (form 72, with its entries in child form 79)."""
+
+    name = models.CharField(max_length=255)
+    institution = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    awarded_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-awarded_on", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Conference(_CvEntry):
+    """Add new conference (form 84)."""
+
+    name = models.CharField(max_length=255)
+    url = models.URLField(max_length=500, blank=True)
+    organizer = models.CharField(max_length=255, blank=True)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    roles = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-starts_on", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Project(_CvEntry):
+    """Add New Project (form 85)."""
+
+    title = models.CharField(max_length=255)
+    goal = models.TextField(blank=True)
+    stage = models.CharField(max_length=120, blank=True)
+    started_on = models.DateField(null=True, blank=True)
+    sponsor = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-started_on", "title"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class CareerPosition(_CvEntry):
+    """Career Timeline (form 70, with its entries in child form 71)."""
+
+    organisation = models.CharField(max_length=255)
+    role = models.CharField(max_length=255, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    started_on = models.DateField(null=True, blank=True)
+    ended_on = models.DateField(null=True, blank=True)
+    is_current = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-is_current", "-started_on"]
+
+    def __str__(self) -> str:
+        return f"{self.role} at {self.organisation}".strip()
