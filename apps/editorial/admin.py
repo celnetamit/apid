@@ -1,7 +1,7 @@
 from django.contrib import admin
 
 from apps.editorial.models import (Application, ApplicationJournal, Appointment,
-                                   EditorialStaff, Journal)
+                                   EditorialStaff, Journal, PublisherImprint)
 
 
 @admin.register(EditorialStaff)
@@ -14,6 +14,14 @@ class EditorialStaffAdmin(admin.ModelAdmin):
     def journal_count(self, obj):
         return obj.journals.count()
     journal_count.short_description = "Journals"
+
+
+@admin.register(PublisherImprint)
+class PublisherImprintAdmin(admin.ModelAdmin):
+    list_display = ("publisher", "signatory_name", "signatory_title", "active", "updated_at")
+    list_filter = ("active",)
+    search_fields = ("publisher", "signatory_name")
+    readonly_fields = ("updated_at",)
 
 
 @admin.register(Journal)

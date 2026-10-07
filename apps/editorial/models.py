@@ -47,6 +47,39 @@ class EditorialStaff(models.Model):
         return f"{self.name} <{self.email}>"
 
 
+class PublisherImprint(models.Model):
+    """Who signs, and under which name, for everything one publisher/brand issues.
+
+    One row per distinct ``Journal.publisher`` value (STM Journals, JournalsPub, Law Journals,
+    MBA Journals). Letters and certificates read the signature block from here, so changing a
+    signatory or a stamp is one edit in one place instead of a dozen hard-coded templates.
+    A journal whose publisher has no row (or an inactive one) falls back to its commissioning
+    editor, exactly as before.
+    """
+
+    publisher = models.CharField(
+        max_length=200, unique=True,
+        help_text="Must match Journal.publisher exactly, e.g. 'STM Journals'.")
+    signatory_name = models.CharField(max_length=200)
+    signatory_title = models.CharField(max_length=255, blank=True)
+    imprint_name = models.CharField(
+        max_length=200, default="Consortium e-Learning Network Pvt Ltd",
+        help_text="The company the letter is issued on behalf of.")
+    address = models.TextField(blank=True, help_text="Printed in the letter footer.")
+    signature_image = models.ImageField(upload_to="imprints/", blank=True)
+    stamp_image = models.ImageField(upload_to="imprints/", blank=True)
+    active = models.BooleanField(default=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["publisher"]
+        verbose_name = "Publisher signature block"
+        verbose_name_plural = "Publisher signature blocks"
+
+    def __str__(self) -> str:
+        return f"{self.publisher} — {self.signatory_name}"
+
+
 class Journal(models.Model):
     """From the live Journals Master (form 25, 278 entries). Reconciling these with
     manuscript-ngine's own journal list — the same portfolio, two databases — is a job

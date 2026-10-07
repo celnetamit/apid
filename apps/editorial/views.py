@@ -659,15 +659,43 @@ def _qr_data_url(payload: str) -> str:
     return "data:image/png;base64," + _b64.b64encode(buf.getvalue()).decode()
 
 
+def _image_data_url(field):
+    """A stored image as a data URL. WeasyPrint has no network, and /media may not be public."""
+    import base64 as _b64, mimetypes
+    if not field:
+        return ""
+    try:
+        with field.open("rb") as fp:
+            raw = fp.read()
+    except (OSError, ValueError):
+        return ""
+    mime = mimetypes.guess_type(field.name)[0] or "image/png"
+    return f"data:{mime};base64," + _b64.b64encode(raw).decode()
+
+
 def _journal_signatory_native(journal):
     """Pick a signatory for a journal's letter/certificate from the local DB.
 
-    Priority: journal.commissioning_editor (EditorialStaff, our internal office)
-    → Chief Editor → Editor-in-Chief → Managing Editor (Appointment-based board roles).
+    Priority: the journal's publisher signature block (PublisherImprint, one edit per brand)
+    -> journal.commissioning_editor (EditorialStaff, our internal office)
+    -> Chief Editor -> Editor-in-Chief -> Managing Editor (Appointment-based board roles).
     If nothing matches, the templates fall back to "Editorial Office".
     """
     if not journal:
         return {}
+    from apps.editorial.models import PublisherImprint
+    brand = (journal.publisher or "").strip()
+    imprint = (PublisherImprint.objects.filter(publisher__iexact=brand, active=True).first()
+               if brand else None)
+    if imprint:
+        return {
+            "signatory_name": imprint.signatory_name,
+            "signatory_title": imprint.signatory_title,
+            "imprint_name": imprint.imprint_name,
+            "address": imprint.address,
+            "signature_data_url": _image_data_url(imprint.signature_image),
+            "stamp_data_url": _image_data_url(imprint.stamp_image),
+        }
     ce = getattr(journal, "commissioning_editor", None)
     if ce and ce.active:
         return {

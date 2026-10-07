@@ -9,7 +9,7 @@ from django.urls import reverse
 
 from apps.editorial.access import is_office
 from apps.editorial.models import (Application, ApplicationJournal, Appointment,
-                                   Decision, Journal)
+                                   Decision, Journal, PublisherImprint)
 from apps.identity.models import Member, MemberRole
 
 BACKEND = "apps.identity.backends.UsernameOrEmailBackend"
@@ -194,3 +194,52 @@ class ApplyingFromHere(TestCase):
             bridge.send = bridge_send
         said = " ".join(str(m) for m in response.context["messages"])
         self.assertIn("does not have International Journal of Mineral", said)
+
+
+
+class WhoSignsForABrand(TestCase):
+    """One edit per publisher, and a journal with no brand row keeps working as before."""
+
+    def setUp(self):
+        from apps.editorial.models import EditorialStaff
+        from apps.editorial.views import _journal_signatory_native
+        self.sign = _journal_signatory_native
+        self.ce = EditorialStaff.objects.create(name="A Commissioner", email="ce@example.com",
+                                                designation="Commissioning Editor")
+        self.stm = Journal.objects.create(title="Journal of Probes", publisher="STM Journals",
+                                          commissioning_editor=self.ce)
+        self.law = Journal.objects.create(title="Journal of Law", publisher="Law Journals",
+                                          commissioning_editor=self.ce)
+
+    def test_the_brand_row_signs_instead_of_the_commissioning_editor(self):
+        PublisherImprint.objects.create(publisher="STM Journals", signatory_name="The Director",
+                                        signatory_title="Director, STM Journals",
+                                        address="Noida")
+        got = self.sign(self.stm)
+        self.assertEqual(got["signatory_name"], "The Director")
+        self.assertEqual(got["signatory_title"], "Director, STM Journals")
+        self.assertEqual(got["address"], "Noida")
+
+    def test_one_brand_does_not_sign_for_another(self):
+        PublisherImprint.objects.create(publisher="STM Journals", signatory_name="The Director")
+        self.assertEqual(self.sign(self.law)["signatory_name"], "A Commissioner")
+
+    def test_a_brand_with_no_row_falls_back_to_the_commissioning_editor(self):
+        self.assertEqual(self.sign(self.stm)["signatory_name"], "A Commissioner")
+
+    def test_an_inactive_brand_row_is_ignored(self):
+        PublisherImprint.objects.create(publisher="STM Journals", signatory_name="The Director",
+                                        active=False)
+        self.assertEqual(self.sign(self.stm)["signatory_name"], "A Commissioner")
+
+    def test_the_brand_match_ignores_case_and_spaces(self):
+        PublisherImprint.objects.create(publisher="stm journals", signatory_name="The Director")
+        self.stm.publisher = " STM Journals "
+        self.assertEqual(self.sign(self.stm)["signatory_name"], "The Director")
+
+    def test_a_missing_image_file_does_not_break_the_letter(self):
+        from django.core.files.base import ContentFile
+        row = PublisherImprint.objects.create(publisher="STM Journals", signatory_name="D")
+        row.signature_image.save("sig.png", ContentFile(b"not really a png"), save=True)
+        row.signature_image.storage.delete(row.signature_image.name)
+        self.assertEqual(self.sign(self.stm)["signature_data_url"], "")

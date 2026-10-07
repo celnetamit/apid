@@ -84,16 +84,21 @@ your academic records and institutional reporting purposes.</p>
 <div class="bottom-block">
   <div class="sig">
     Yours sincerely,
+    {% if sig.signature_data_url %}
+    <div style="margin-top:10px; height:60px;"><img src="{{ sig.signature_data_url }}" alt="" style="height:55px;"></div>
+    {% else %}
     <div style="margin-top:30px; width:220px; border-bottom:1px solid #333;"></div>
+    {% endif %}
     <div class="sig-name" style="margin-top:4px">
       <strong style="font-size:11pt; color:#1a3a6e">{{ sig.signatory_name|default:"Editorial Office" }}</strong><br>
       {% if sig.signatory_title %}{{ sig.signatory_title }}<br>{% endif %}
       <em>{{ journal.title }}</em><br>
       <span style="font-size:9.5pt; color:#666">{{ sig.imprint_name|default:"Consortium e-Learning Network Pvt Ltd" }}</span>
+      {% if sig.stamp_data_url %}<div style="margin-top:8px"><img src="{{ sig.stamp_data_url }}" alt="" style="height:80px;"></div>{% endif %}
     </div>
   </div>
   <div class="footer">
-    APID: {{ member.apid }} · Appointment ID: {{ appointment.pk }} · Generated: {{ today|date:"j F Y" }} · This is a system-generated letter.
+    {% if sig.address %}{{ sig.address|linebreaksbr }}<br>{% endif %}APID: {{ member.apid }} · Appointment ID: {{ appointment.pk }} · Generated: {{ today|date:"j F Y" }} · This is a system-generated letter.
   </div>
 </div>
 

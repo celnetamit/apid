@@ -115,6 +115,7 @@ html, body { width: 297mm; height: 210mm; font-family: 'Times New Roman', Times,
         <table class="footer-table">
           <tr>
             <td class="seal" style="width:40%">
+              {% if sig.signature_data_url %}<img src="{{ sig.signature_data_url }}" alt="" style="height:40px; display:block; margin:0 0 2px 0;">{% endif %}
               <span class="sig-name">{{ sig.signatory_name|default:"Editorial Office" }}</span>
               {% if sig.signatory_title %}<span class="sig-title">{{ sig.signatory_title }}</span><br>{% endif %}
               <span class="sig-journal">{{ journal.title }}</span><br>
@@ -127,6 +128,7 @@ html, body { width: 297mm; height: 210mm; font-family: 'Times New Roman', Times,
               </div>
             </td>
             <td class="issued" style="width:40%">
+              {% if sig.stamp_data_url %}<img src="{{ sig.stamp_data_url }}" alt="" style="height:62px; display:block; margin:0 0 4px auto;">{% endif %}
               Issued: {{ today|date:"j F Y" }}
               <div class="cert-id">APID: {{ member.apid }} &nbsp;|&nbsp; ID: CELNET-EC-{{ appointment.pk }}</div>
             </td>
