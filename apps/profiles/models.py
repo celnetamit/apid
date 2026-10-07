@@ -9,9 +9,14 @@ revision trail rather than a pile of entries.
 
 from __future__ import annotations
 
+import re
+
 from django.db import models
 
 from apps.identity.models import Member
+
+_ORCID_ID_RE = re.compile(r"\d{4}-\d{4}-\d{4}-\d{3}[\dXx]")
+_SCHOLAR_ID_RE = re.compile(r"^[A-Za-z0-9_-]{10,16}$")
 
 
 class Profile(models.Model):
@@ -76,6 +81,39 @@ class Profile(models.Model):
         place them."""
         return bool(self.affiliation and (self.department or self.designation))
 
+    # ORCID + Scholar come in from the live form as a mix: bare IDs, full
+    # URLs, parenthesised URLs ("(https://orcid.org/0000-0001-...)," and
+    # outright junk like "#403microbiology"). The template shouldn't try to
+    # build a URL from any of that — these two properties return a canonical
+    # link only when the stored value parses, and an empty string otherwise so
+    # the row is simply hidden.
+    @property
+    def orcid_url(self) -> str:
+        v = (self.orcid or "").strip()
+        if not v:
+            return ""
+        m = _ORCID_ID_RE.search(v)
+        if m:
+            return f"https://orcid.org/{m.group(0)}"
+        return ""
+
+    @property
+    def orcid_display(self) -> str:
+        v = (self.orcid or "").strip()
+        m = _ORCID_ID_RE.search(v)
+        return m.group(0) if m else ""
+
+    @property
+    def scholar_url(self) -> str:
+        v = (self.google_scholar_id or "").strip()
+        if not v:
+            return ""
+        if v.lower().startswith(("http://", "https://")):
+            return v if "scholar.google." in v.lower() else ""
+        if _SCHOLAR_ID_RE.match(v):
+            return f"https://scholar.google.com/citations?user={v}&hl=en"
+        return ""
+
 
 class Qualification(models.Model):
     """A degree. The live site keeps these in a repeater form (id 4), so a member has
@@ -117,3 +155,128 @@ class LegacyProfileLink(models.Model):
 
     def __str__(self) -> str:
         return f"/apid-profiles/apid/{self.wp_entry_id}/ → {self.member.apid}"
+
+
+class _CvEntry(models.Model):
+    """What the four CV sections share: whose it is, and which live entry it came from.
+
+    `wp_entry_id` is unique so the import can run again and update rather than repeat.
+    """
+
+    member = models.ForeignKey(Member, on_delete=models.CASCADE,
+                               related_name="%(class)ss")
+    wp_entry_id = models.IntegerField(null=True, blank=True, unique=True, db_index=True)
+
+    class Meta:
+        abstract = True
+
+
+class Award(_CvEntry):
+    """Honors & Awards (form 72, with its entries in child form 79)."""
+
+    name = models.CharField(max_length=255)
+    institution = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    awarded_on = models.DateField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-awarded_on", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Conference(_CvEntry):
+    """Add new conference (form 84)."""
+
+    name = models.CharField(max_length=255)
+    url = models.URLField(max_length=500, blank=True)
+    organizer = models.CharField(max_length=255, blank=True)
+    starts_on = models.DateField(null=True, blank=True)
+    ends_on = models.DateField(null=True, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    roles = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-starts_on", "name"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class Project(_CvEntry):
+    """Add New Project (form 85)."""
+
+    title = models.CharField(max_length=255)
+    goal = models.TextField(blank=True)
+    stage = models.CharField(max_length=120, blank=True)
+    started_on = models.DateField(null=True, blank=True)
+    sponsor = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["-started_on", "title"]
+
+    def __str__(self) -> str:
+        return self.title
+
+
+class CareerPosition(_CvEntry):
+    """Career Timeline (form 70, with its entries in child form 71)."""
+
+    organisation = models.CharField(max_length=255)
+    role = models.CharField(max_length=255, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    started_on = models.DateField(null=True, blank=True)
+    ended_on = models.DateField(null=True, blank=True)
+    is_current = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["-is_current", "-started_on"]
+
+    def __str__(self) -> str:
+        return f"{self.role} at {self.organisation}".strip()
+
+
+class ClaimedRole(_CvEntry):
+    """A role a member says they hold on a journal — *claimed*, not verified.
+
+    Three live forms recorded the same thing: Contributions (form 67), Role Update
+    (form 80, 264 entries, 47 of them filed signed-out) and the Contribution rows of
+    Editorial Registration (form 98). `status` is what the office last set on it —
+    "Waiting for Approval" for nearly all of them — so nothing here may be shown as a
+    fact about the member. Real appointments are `editorial.Appointment`.
+    """
+
+    kind = models.CharField(max_length=40, blank=True)       # Journal, Book, …
+    subject = models.CharField(max_length=160, blank=True)
+    journal = models.CharField(max_length=255)
+    abbreviation = models.CharField(max_length=60, blank=True)
+    journal_url = models.URLField(max_length=500, blank=True)
+    role = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=40, blank=True)
+    remark = models.TextField(blank=True)
+    source_form = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.role} — {self.journal}"
+
+
+class ReviewedPaper(_CvEntry):
+    """Reviewer Contribution Form (form 205; the papers are child form 206)."""
+
+    subject = models.CharField(max_length=160, blank=True)
+    journal = models.CharField(max_length=255, blank=True)
+    abbreviation = models.CharField(max_length=60, blank=True)
+    paper_title = models.CharField(max_length=500, blank=True)
+    published_on = models.DateField(null=True, blank=True)
+    papers_count = models.IntegerField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-published_on"]
+
+    def __str__(self) -> str:
+        return self.paper_title or self.journal

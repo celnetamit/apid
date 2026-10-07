@@ -8,16 +8,20 @@ themselves an admin after being sent a 403.
 
 Two tiers can work the queue:
 
-  1. **Office** — staff / superuser / administrator / tech_support / commissioning_editor.
+  1. **Office** — staff / superuser / administrator / tech_support.
      They see every application across every journal.
 
-  2. **Journal manager** — someone with an active Editor-in-Chief (or equivalent) appointment
-     for one or more journals. They see only applications that name one of their journals,
-     and can decide those applications.  They cannot see or decide applications for journals
-     they do not manage.
+  2. **Journal manager** — an internal EditorialStaff member (our own employee)
+     set as `Journal.commissioning_editor` on one or more journals. The access
+     link is the signatory link: whichever journals have your EditorialStaff row
+     set as their commissioning editor are the journals whose applications you
+     can decide. Nothing else.
 
-Editors and section editors are *not* in either tier — they serve on boards, they do not
-decide who joins one.
+Deliberately out of scope: external academic appointments.  Even an active
+Editor-in-Chief, Associate EIC, or Commissioning-Editor Appointment on a journal
+does not grant queue access — board members serve on boards, they do not decide
+who joins one. The academic board is advisory; application decisions belong to
+the editorial office (internal staff + their delegated commissioning editors).
 """
 
 from __future__ import annotations
@@ -36,18 +40,6 @@ from django.core.exceptions import PermissionDenied
 #: journals (see `manager_journals`).
 OFFICE_ROLES = {"administrator", "tech_support"}
 
-#: Appointment roles that give someone journal-level application management access.
-#: Counted in live data: Editor-in-Chief 344, Associate Editor-in-chief 382, etc.
-#: Case-sensitive match against the Appointment.role strings as imported.
-# # wisp 2026-10-02: CE as journal-manager
-MANAGER_ROLES = frozenset({
-    "Editor-in-Chief",
-    "Associate Editor-in-chief",
-    "Associate Editor-in-Chief",
-    "Commissioning Editor",
-    "journal_manager",
-})
-
 
 def is_office(user) -> bool:
     """True or False. Never a response, never None."""
@@ -61,27 +53,21 @@ def is_office(user) -> bool:
 def manager_journals(user):
     """Queryset of Journal objects this user actively manages.
 
-    Two sources, union:
-      * active Appointment in a MANAGER_ROLES role (EIC, Associate EIC, journal_manager).
-      * Journal.commissioning_editor pointing at an active EditorialStaff whose email
-        matches the user's email — the signatory-side link is now the access link too.
+    One source: Journal.commissioning_editor pointing at an active EditorialStaff
+    whose email matches the user's email. Internal employees only — the whole
+    point of the correction (2026-10-05) is that external academic appointments
+    do not grant queue power.
     """
     from apps.editorial.models import Journal
     if not getattr(user, "is_authenticated", False):
         return Journal.objects.none()
-    from django.db.models import Q
     email = (getattr(user, "email", "") or "").lower()
-    predicate = Q(
-        appointments__member=user,
-        appointments__role__in=MANAGER_ROLES,
-        appointments__ended_on__isnull=True,
-    )
-    if email:
-        predicate |= Q(
-            commissioning_editor__email__iexact=email,
-            commissioning_editor__active=True,
-        )
-    return Journal.objects.filter(predicate).distinct()
+    if not email:
+        return Journal.objects.none()
+    return Journal.objects.filter(
+        commissioning_editor__email__iexact=email,
+        commissioning_editor__active=True,
+    ).distinct()
 
 
 def is_journal_manager(user) -> bool:

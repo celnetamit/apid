@@ -97,6 +97,11 @@ def queue(request):
         journal_id = int(request.GET.get("journal") or 0) or None
     except ValueError:
         journal_id = None
+    # wisp 2026-10-05: pending-age bucket filter (fresh/week/twoweek/older).
+    # Only meaningful on the Pending tab; silently ignored elsewhere.
+    age = (request.GET.get("age") or "").strip() or None
+    if state not in ("new", "pending"):
+        age = None
 
     user_is_office = is_office(request.user)
     journal_ids = None
@@ -115,17 +120,20 @@ def queue(request):
         page_num = 1
     page_size = 10_000 if want_csv else 50
     try:
-        counts = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
-                               date_from=date_from, date_to=date_to)
+        summary = queue_summary(journal_ids=journal_ids, journal_id=journal_id,
+                                date_from=date_from, date_to=date_to,
+                                with_pending_stats=(state in ("new", "pending")))
+        counts = {k: v for k, v in summary.items() if k != "pending_stats"}
+        pending_stats = summary.get("pending_stats")
         page_data = mng_queue(
             status=state if state and state != "all" else None,
             q=query or None, page=page_num, page_size=page_size,
             journal_ids=journal_ids, journal_id=journal_id,
-            date_from=date_from, date_to=date_to,
+            date_from=date_from, date_to=date_to, age=age,
         )
     except Exception as exc:                                     # noqa: BLE001
         messages.error(request, f"Could not reach the decisions system: {exc}")
-        counts, page_data = {}, {"rows": [], "total": 0}
+        counts, pending_stats, page_data = {}, None, {"rows": [], "total": 0}
 
     rows = page_data.get("rows", [])
     for r in rows:
@@ -210,6 +218,8 @@ def queue(request):
         "state": state,
         "query": query,
         "counts": counts,
+        "pending_stats": pending_stats,
+        "age": age or "",
         "tabs": tabs,
         "journal_choices": journal_choices,
         "selected_journal": journal_id,
@@ -649,15 +659,43 @@ def _qr_data_url(payload: str) -> str:
     return "data:image/png;base64," + _b64.b64encode(buf.getvalue()).decode()
 
 
+def _image_data_url(field):
+    """A stored image as a data URL. WeasyPrint has no network, and /media may not be public."""
+    import base64 as _b64, mimetypes
+    if not field:
+        return ""
+    try:
+        with field.open("rb") as fp:
+            raw = fp.read()
+    except (OSError, ValueError):
+        return ""
+    mime = mimetypes.guess_type(field.name)[0] or "image/png"
+    return f"data:{mime};base64," + _b64.b64encode(raw).decode()
+
+
 def _journal_signatory_native(journal):
     """Pick a signatory for a journal's letter/certificate from the local DB.
 
-    Priority: journal.commissioning_editor (EditorialStaff, our internal office)
-    → Chief Editor → Editor-in-Chief → Managing Editor (Appointment-based board roles).
+    Priority: the journal's publisher signature block (PublisherImprint, one edit per brand)
+    -> journal.commissioning_editor (EditorialStaff, our internal office)
+    -> Chief Editor -> Editor-in-Chief -> Managing Editor (Appointment-based board roles).
     If nothing matches, the templates fall back to "Editorial Office".
     """
     if not journal:
         return {}
+    from apps.editorial.models import PublisherImprint
+    brand = (journal.publisher or "").strip()
+    imprint = (PublisherImprint.objects.filter(publisher__iexact=brand, active=True).first()
+               if brand else None)
+    if imprint:
+        return {
+            "signatory_name": imprint.signatory_name,
+            "signatory_title": imprint.signatory_title,
+            "imprint_name": imprint.imprint_name,
+            "address": imprint.address,
+            "signature_data_url": _image_data_url(imprint.signature_image),
+            "stamp_data_url": _image_data_url(imprint.stamp_image),
+        }
     ce = getattr(journal, "commissioning_editor", None)
     if ce and ce.active:
         return {
@@ -943,6 +981,18 @@ def suggestions(request):
                                        role=role, limit=25)
             except Exception as exc:                             # noqa: BLE001
                 messages.error(request, f"Recommender error: {exc}")
+            # wisp 2026-10-04: drop candidates already serving on this journal
+            # with any active role -- showing an "Invite as Reviewer" button for
+            # someone who is already a Reviewer is the same bug as on the
+            # /profiles/ page.
+            if candidates:
+                from apps.editorial.models import Appointment
+                already = set(
+                    Appointment.objects.filter(
+                        journal_id=picked.id, ended_on__isnull=True
+                    ).values_list("member__apid", flat=True)
+                )
+                candidates = [c for c in candidates if c.get("apid") not in already]
 
     return render(request, "editorial/suggestions.html", {
         "journals": journals_qs,
@@ -1421,16 +1471,34 @@ def email_template_edit(request, pk: int):
 def editors_index(request):
     """Editorial-staff roster. Click a row to edit; one place for all their journals."""
     from django.db.models import Count
+    from django.db.models.functions import Lower
     from apps.editorial.models import EditorialStaff
+    from apps.identity.models import Member
     q = (request.GET.get("q") or "").strip()
-    editors = EditorialStaff.objects.annotate(journal_count=Count("journals"))
+    editors_qs = EditorialStaff.objects.annotate(journal_count=Count("journals"))
     if q:
-        editors = editors.filter(Q(name__icontains=q) | Q(email__icontains=q))
-    editors = editors.order_by("-active", "-journal_count", "name")
+        editors_qs = editors_qs.filter(Q(name__icontains=q) | Q(email__icontains=q))
+    editors = list(editors_qs.order_by("-active", "-journal_count", "name"))
+
+    # Match each staff email to an active Member so the roster can offer a
+    # one-click "Login as" shortcut. One case-insensitive IN query — not an
+    # N+1 — and we only expose the apid when the Member is active, so an
+    # ex-employee's lingering account can't be re-entered through this door.
+    emails_lower = {(e.email or "").strip().lower() for e in editors if e.email}
+    member_by_email: dict[str, str] = {}
+    if emails_lower:
+        rows = (Member.objects
+                .annotate(email_lc=Lower("email"))
+                .filter(email_lc__in=emails_lower, is_active=True)
+                .values("email_lc", "apid"))
+        member_by_email = {r["email_lc"]: r["apid"] for r in rows}
+    for e in editors:
+        e.member_apid = member_by_email.get((e.email or "").strip().lower())
+
     return render(request, "editorial/editors_index.html", {
         "editors": editors,
         "q": q,
-        "total": editors.count(),
+        "total": len(editors),
     })
 
 

@@ -1,6 +1,7 @@
 from django.contrib import admin
 
-from apps.profiles.models import LegacyProfileLink, Profile, Qualification
+from apps.profiles.models import (Award, CareerPosition, ClaimedRole, Conference, LegacyProfileLink,
+                                  Profile, Project, Qualification, ReviewedPaper)
 
 
 class QualificationInline(admin.TabularInline):
@@ -29,3 +30,46 @@ class LegacyProfileLinkAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+
+class _CvAdmin(admin.ModelAdmin):
+    search_fields = ("member__apid", "member__full_name")
+    autocomplete_fields = ["member"]
+    readonly_fields = ("wp_entry_id",)
+
+
+@admin.register(Award)
+class AwardAdmin(_CvAdmin):
+    list_display = ("name", "member", "institution", "awarded_on")
+    search_fields = _CvAdmin.search_fields + ("name", "institution")
+
+
+@admin.register(Conference)
+class ConferenceAdmin(_CvAdmin):
+    list_display = ("name", "member", "organizer", "starts_on", "location")
+    search_fields = _CvAdmin.search_fields + ("name", "organizer")
+
+
+@admin.register(Project)
+class ProjectAdmin(_CvAdmin):
+    list_display = ("title", "member", "sponsor", "stage", "started_on")
+    search_fields = _CvAdmin.search_fields + ("title", "sponsor")
+
+
+@admin.register(CareerPosition)
+class CareerPositionAdmin(_CvAdmin):
+    list_display = ("role", "organisation", "member", "started_on", "is_current")
+    search_fields = _CvAdmin.search_fields + ("organisation", "role")
+
+
+@admin.register(ClaimedRole)
+class ClaimedRoleAdmin(_CvAdmin):
+    list_display = ("role", "journal", "member", "status", "source_form")
+    list_filter = ("status", "source_form", "role")
+    search_fields = _CvAdmin.search_fields + ("journal", "role")
+
+
+@admin.register(ReviewedPaper)
+class ReviewedPaperAdmin(_CvAdmin):
+    list_display = ("paper_title", "journal", "member", "published_on")
+    search_fields = _CvAdmin.search_fields + ("paper_title", "journal")

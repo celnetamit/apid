@@ -36,8 +36,8 @@ p, .body { font-size: 10.5pt; color: #222; }
   <div class="ids">
     APID {{ member.apid }}
     {% if member.email %} · {{ member.email }}{% endif %}
-    {% if profile.orcid %} · ORCID {{ profile.orcid }}{% endif %}
-    {% if profile.google_scholar_id %} · Google Scholar: {{ profile.google_scholar_id }}{% endif %}
+    {% if profile.orcid_display %} · ORCID {{ profile.orcid_display }}{% endif %}
+    {% if profile.scholar_url %} · Google Scholar: {{ profile.scholar_url }}{% endif %}
   </div>
 </div>
 

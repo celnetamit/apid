@@ -101,8 +101,7 @@
         {% endif %}
       </div>
       {% endif %}
-      {# wisp 2026-10-03: share widget — owner only. Links printed in a paper
-         are shared by the person whose profile it is, not by every passerby. #}
+      {% comment %}wisp 2026-10-03: share widget — owner only. Links printed in a paper are shared by the person whose profile it is, not by every passerby.{% endcomment %}
       {% if is_owner %}
       <div class="share-row">
         <span class="share-label">Share</span>
@@ -149,10 +148,11 @@
 
   <dl class="facts">
     <dt>APID</dt><dd><strong>{{ member.apid }}</strong></dd>
-    {% if profile.orcid %}<dt>ORCID</dt>
-      <dd><a href="https://orcid.org/{{ profile.orcid }}">{{ profile.orcid }}</a></dd>{% endif %}
+    {% if profile.orcid_url %}<dt>ORCID</dt>
+      <dd><a href="{{ profile.orcid_url }}" rel="noopener">{{ profile.orcid_display }}</a></dd>{% endif %}
     {% if profile.scopus_id %}<dt>Scopus</dt><dd>{{ profile.scopus_id }}</dd>{% endif %}
-    {% if profile.google_scholar_id %}<dt>Google Scholar</dt><dd>{{ profile.google_scholar_id }}</dd>{% endif %}
+    {% if profile.scholar_url %}<dt>Google Scholar</dt>
+      <dd><a href="{{ profile.scholar_url }}" rel="noopener">Scholar profile</a></dd>{% endif %}
     {% if profile.city or profile.country %}<dt>Location</dt>
       <dd>{{ profile.city }}{% if profile.state %}, {{ profile.state }}{% endif %}{% if profile.country %}, {{ profile.country }}{% endif %}</dd>{% endif %}
     {% if profile.expertise %}<dt>Expertise</dt><dd>{{ profile.expertise }}</dd>{% endif %}
@@ -172,7 +172,7 @@
     </table>
   {% endif %}
 
-  {% if can_invite %}
+  {% if can_invite and invite_journals %}
     <details style="margin-top:22px;padding:14px;border:1px solid var(--line);border-radius:8px;background:#f8fafc">
       <summary style="cursor:pointer;font-weight:600;color:var(--accent)">Invite this member →</summary>
       <form method="post" action="{% url 'invite-from-profile' member.apid %}" style="margin-top:12px">
@@ -211,6 +211,43 @@
       <p style="margin:0 0 10px;color:var(--muted)">Sign in to see editorial board appointments, follow, and connect.</p>
       <a href="{% url 'login' %}?next=/profiles/{{ member.apid }}/" class="followbtn" style="display:inline-block;padding:8px 20px;text-decoration:none">Sign in</a>
     </div>
+  {% endif %}
+
+  {% if career %}
+    <h2>Career</h2>
+    <ul class="pubs">
+      {% for c in career %}
+        <li><strong>{{ c.role|default:"Position" }}</strong>, {{ c.organisation }}{% if c.location %}, {{ c.location }}{% endif %}
+          {% if c.started_on %}<span style="color:var(--muted)">({{ c.started_on|date:"M Y" }} – {% if c.is_current %}present{% elif c.ended_on %}{{ c.ended_on|date:"M Y" }}{% endif %})</span>{% elif c.is_current %}<span style="color:var(--muted)">(present)</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if awards %}
+    <h2>Honors &amp; awards</h2>
+    <ul class="pubs">
+      {% for a in awards %}
+        <li><strong>{{ a.name }}</strong>{% if a.institution %}, {{ a.institution }}{% endif %}{% if a.awarded_on %} <span style="color:var(--muted)">({{ a.awarded_on|date:"Y" }})</span>{% endif %}{% if a.description %}<br><span style="color:var(--muted)">{{ a.description }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if conferences %}
+    <h2>Conferences</h2>
+    <ul class="pubs">
+      {% for c in conferences %}
+        <li>{% if c.url %}<a href="{{ c.url }}">{{ c.name }}</a>{% else %}{{ c.name }}{% endif %}{% if c.organizer %}, {{ c.organizer }}{% endif %}{% if c.location %}, {{ c.location }}{% endif %}{% if c.starts_on %} <span style="color:var(--muted)">({{ c.starts_on|date:"M Y" }})</span>{% endif %}{% if c.roles %} <span style="color:var(--muted)">· {{ c.roles }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if projects %}
+    <h2>Projects</h2>
+    <ul class="pubs">
+      {% for p in projects %}
+        <li><strong>{{ p.title }}</strong>{% if p.sponsor %}, {{ p.sponsor }}{% endif %}{% if p.stage %} <span style="color:var(--muted)">· {{ p.stage }}</span>{% endif %}{% if p.goal %}<br><span style="color:var(--muted)">{{ p.goal }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
   {% endif %}
 
   {% if publications %}

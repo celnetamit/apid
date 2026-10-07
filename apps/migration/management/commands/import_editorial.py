@@ -222,7 +222,11 @@ class Command(BaseCommand):
     def _appointments(self, wp, members, journals, apps, counts, dry) -> None:
         for entry in wp.entries(ASSIGNMENT):
             counts["assignment entries"] += 1
-            member = member_of(entry, members)
+            application = apps.get(digits(first(entry.get(ASG_APP_ID))))
+            # The appointee is the applicant. entry.user_id is whoever FILLED the form (a
+            # commissioning editor's role mailbox), so it is only a fallback for the few
+            # assignments that name no application.
+            member = application.member if application is not None else member_of(entry, members)
             title = first(entry.get(ASG_JOURNAL)).strip()
             role = first(entry.get(ASG_ROLE)).strip() or "editor"
             if member is None:
@@ -234,7 +238,6 @@ class Command(BaseCommand):
                 continue
             if dry:
                 continue
-            application = apps.get(digits(first(entry.get(ASG_APP_ID))))
             if Appointment.objects.filter(
                     member=member, journal=journal, role=role[:60],
                     started_on=entry.created_at.date() if entry.created_at else None
@@ -250,6 +253,15 @@ class Command(BaseCommand):
                           "started_on": entry.created_at.date() if entry.created_at
                           else None})
             counts["appointments imported"] += 1
+            if application is not None and application.decision == Decision.PENDING:
+                # An appointment is an acceptance. Teams that appointed through the assignment
+                # form alone never filled the acceptance form, and read as "pending" forever.
+                application.decision = Decision.ACCEPTED
+                application.decided_at = entry.created_at
+                application.save(update_fields=["decision", "decided_at"])
+                application.journals.filter(journal=journal, decision=Decision.PENDING).update(
+                    decision=Decision.ACCEPTED, decided_at=entry.created_at, role_appointed=role[:120])
+                counts["applications accepted by appointment"] += 1
 
     def _report(self, counts) -> None:
         self.stdout.write("")

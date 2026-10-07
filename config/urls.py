@@ -16,6 +16,7 @@ from django.contrib.auth.views import LoginView
 from django.views.static import serve
 
 from apps.editorial import invite_views
+from apps.editorial import stats_api as editorial_stats_api
 from apps.editorial import views as editorial
 from apps.identity import lookup
 from apps.identity import views as identity
@@ -24,6 +25,16 @@ from apps.profiles import seo as profile_seo
 from apps.profiles import share_views
 from apps.content import views as content_pages
 from apps.profiles import views as profiles
+
+
+def _serve_media(request, path, document_root=None):
+    """Uploads, except the publisher signature blocks: a director's signature and the brand
+    stamps are only ever embedded in the PDFs, so nobody but office staff needs the file."""
+    from django.http import Http404
+    if path.startswith("imprints/") and not (request.user.is_authenticated and request.user.is_staff):
+        raise Http404
+    return serve(request, path, document_root=document_root)
+
 
 urlpatterns = [
     path("", content_pages.home_marketing, name="home"),
@@ -96,6 +107,8 @@ urlpatterns = [
 
     # The editorial office.
     path("apply/", editorial.apply, name="apply"),
+    # Shared-key aggregate stats for the ops cockpit. 404 without the header.
+    path("_apid/stats.json", editorial_stats_api.stats_json, name="apid-stats-json"),
     # Invitations: office → member
     path("profiles/<str:apid>/invite/", invite_views.invite_from_profile,
          name="invite-from-profile"),
@@ -174,7 +187,7 @@ urlpatterns = [
     # same gate as the pages that show them, so while the site is closed a profile
     # picture is not readable by anyone who guesses its path. Caddy can take this over
     # the day the registry goes public.
-    re_path(r"^media/(?P<path>.*)$", serve,
+    re_path(r"^media/(?P<path>.*)$", _serve_media,
             {"document_root": settings.MEDIA_ROOT}),
 ]
 

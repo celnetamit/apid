@@ -62,14 +62,17 @@ def profile(request, apid: str):
     if can_invite:
         # Journals the caller can staff (via manager, or all if office). Kept small
         # for the office too — the form gets a searchable dropdown, not a 276-item list.
+        # wisp 2026-10-04: exclude journals where the member is already serving
+        # (active appointment) so we don't offer to invite someone who is already there.
         from apps.editorial.access import manager_journals
         from apps.editorial.models import Journal
+        already_on = set(member.appointments.filter(ended_on__isnull=True)
+                                .values_list("journal_id", flat=True))
         if is_office(request.user):
-            invite_journals = list(Journal.objects.order_by("title")
-                                   .values("id", "title", "abbreviation"))
+            qs = Journal.objects.exclude(id__in=already_on).order_by("title")
         else:
-            invite_journals = list(manager_journals(request.user).order_by("title")
-                                   .values("id", "title", "abbreviation"))
+            qs = manager_journals(request.user).exclude(id__in=already_on).order_by("title")
+        invite_journals = list(qs.values("id", "title", "abbreviation"))
 
     # wisp 2026-10-02 pm: share widget + OpenGraph context.
     profile_url = request.build_absolute_uri(f"/profiles/{member.apid}/")
@@ -104,8 +107,8 @@ def profile(request, apid: str):
         _person["jobTitle"] = _profile.designation
     if _profile and _profile.country:
         _person["nationality"] = _profile.country
-    if _profile and _profile.orcid:
-        _person["sameAs"] = [f"https://orcid.org/{_profile.orcid}"]
+    if _profile and _profile.orcid_url:
+        _person["sameAs"] = [_profile.orcid_url]
     if _profile and _profile.biography:
         _person["description"] = _profile.biography[:500]
     person_ld_json = _json.dumps(_person, ensure_ascii=False)
@@ -115,6 +118,10 @@ def profile(request, apid: str):
         "profile": getattr(member, "profile", None),
         "appointments": member.appointments.all() if full_view else None,
         "publications": member.publications.all()[:20],
+        "career": member.careerpositions.all(),
+        "awards": member.awards.all(),
+        "conferences": member.conferences.all(),
+        "projects": member.projects.all(),
         "counts": counts,
         "i_follow": i_follow,
         "posts": member.posts.filter(hidden=False)[:5] if full_view else None,

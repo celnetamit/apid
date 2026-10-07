@@ -94,16 +94,38 @@ def _canonical_role(raw: str | None) -> str:
     return "Reviewer"
 
 
+# Pending-age buckets (days since applied_at). Keep in sync with
+# _bucket_for_days() and the queue() age filter below. Edges are inclusive
+# on the low side so a row 7 days old lands in 'week', not 'fresh'.
+AGE_BUCKETS = (
+    ("fresh",    0,    7,  "0-6 days"),
+    ("week",     7,   14,  "1-2 weeks"),
+    ("twoweek", 14,   30,  "2-4 weeks"),
+    ("older",   30, None,  "30+ days"),
+)
+
+
+def _bucket_for_days(days: int) -> str:
+    for key, lo, hi, _label in AGE_BUCKETS:
+        if days >= lo and (hi is None or days < hi):
+            return key
+    return "fresh"
+
+
 def queue_summary(journal_ids: list[int] | None = None, *,
                   journal_id: int | None = None,
                   date_from: str | None = None,
-                  date_to: str | None = None) -> dict:
+                  date_to: str | None = None,
+                  with_pending_stats: bool = False) -> dict:
     # wisp 2026-10-02 (option-B): native decisions
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
     # sees counts for their own journals; plus optional single-journal and
     # date-range filters so the per-tab counts reflect what the user is
     # looking at, not the whole system.
+    # wisp 2026-10-05: optional pending-age stats so the queue page can show
+    # how old the undecided pile is and let the user filter by bucket.
     from apps.editorial.models import Application, Decision
+    from django.utils import timezone
     qs = Application.objects.all()
     if journal_ids is not None:
         qs = qs.filter(journals__journal_id__in=journal_ids).distinct()
@@ -113,12 +135,44 @@ def queue_summary(journal_ids: list[int] | None = None, *,
         qs = qs.filter(applied_at__date__gte=date_from)
     if date_to:
         qs = qs.filter(applied_at__date__lte=date_to)
-    return {
+    result = {
         "new": qs.filter(decision=Decision.PENDING).count(),
         "under_review": 0,
         "accepted": qs.filter(decision=Decision.ACCEPTED).count(),
         "declined": qs.filter(decision=Decision.DECLINED).count(),
     }
+    if with_pending_stats:
+        now = timezone.now()
+        ages_days: list[int] = []
+        for ts in (qs.filter(decision=Decision.PENDING)
+                     .values_list("applied_at", flat=True)):
+            if ts is not None:
+                ages_days.append(max(0, (now - ts).days))
+        buckets = {key: 0 for key, _, _, _ in AGE_BUCKETS}
+        for d in ages_days:
+            buckets[_bucket_for_days(d)] += 1
+        if ages_days:
+            avg_days = round(sum(ages_days) / len(ages_days), 1)
+            sorted_ages = sorted(ages_days)
+            mid = len(sorted_ages) // 2
+            if len(sorted_ages) % 2:
+                median_days = sorted_ages[mid]
+            else:
+                median_days = round((sorted_ages[mid - 1] + sorted_ages[mid]) / 2, 1)
+            oldest_days = sorted_ages[-1]
+        else:
+            avg_days = median_days = oldest_days = 0
+        result["pending_stats"] = {
+            "count": len(ages_days),
+            "avg_days": avg_days,
+            "median_days": median_days,
+            "oldest_days": oldest_days,
+            "buckets": [
+                {"key": key, "label": label, "count": buckets[key]}
+                for key, _, _, label in AGE_BUCKETS
+            ],
+        }
+    return result
 
 
 def _queue_summary_legacy_mng() -> dict:
@@ -130,13 +184,18 @@ def queue(*, status: str | None = None, journal: str | None = None,
           journal_ids: list[int] | None = None,
           journal_id: int | None = None,
           date_from: str | None = None,
-          date_to: str | None = None) -> dict:
+          date_to: str | None = None,
+          age: str | None = None) -> dict:
     # wisp 2026-10-02 (option-B): native queue from local DB
     # wisp 2026-10-03: optional journal_ids filter so a journal manager only
     # sees applications naming at least one of their journals; plus single
     # journal + applied-date range filters for the per-view toolbar.
+    # wisp 2026-10-05: `age` filters pending rows into one of AGE_BUCKETS so
+    # a stat chip at the top of the page can jump straight to "2+ weeks old".
     from apps.editorial.models import Application, Decision
     from django.db.models import Q
+    from django.utils import timezone
+    from datetime import timedelta
     qs = (Application.objects
           .select_related("member", "member__profile", "decided_by")
           .prefetch_related("journals__journal")
@@ -157,6 +216,16 @@ def queue(*, status: str | None = None, journal: str | None = None,
         qs = qs.filter(applied_at__date__gte=date_from)
     if date_to:
         qs = qs.filter(applied_at__date__lte=date_to)
+    if age:
+        bucket = next((b for b in AGE_BUCKETS if b[0] == age), None)
+        if bucket:
+            _, lo, hi, _ = bucket
+            now = timezone.now()
+            if hi is not None:
+                qs = qs.filter(applied_at__gt=now - timedelta(days=hi),
+                               applied_at__lte=now - timedelta(days=lo))
+            else:
+                qs = qs.filter(applied_at__lte=now - timedelta(days=lo))
     if q:
         qs = qs.filter(Q(member__full_name__icontains=q)
                        | Q(member__email__icontains=q)
@@ -164,9 +233,16 @@ def queue(*, status: str | None = None, journal: str | None = None,
                        | Q(applying_for__icontains=q))
     total = qs.count()
     sliced = qs[(page - 1) * page_size: page * page_size]
+    now = timezone.now()
+    pending_set = (Decision.PENDING,)
     rows = []
     for a in sliced:
         js = list(a.journals.all())
+        pending_days = None
+        age_bucket = None
+        if a.decision in pending_set and a.applied_at:
+            pending_days = max(0, (now - a.applied_at).days)
+            age_bucket = _bucket_for_days(pending_days)
         rows.append({
             "id": str(a.pk),
             "pk": a.pk,
@@ -184,6 +260,8 @@ def queue(*, status: str | None = None, journal: str | None = None,
             "status_display": a.get_decision_display(),
             "applied_at": a.applied_at,
             "decided_at": a.decided_at,
+            "pending_days": pending_days,
+            "age_bucket": age_bucket,
             "cv_url": f"/office/application/{a.pk}/cv" if a.cv else "",
             "cv_name": a.cv.name.rsplit("/", 1)[-1] if a.cv else "",
         })
